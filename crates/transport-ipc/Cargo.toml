@@ -1,0 +1,11 @@
+# Transporte IPC local entre o hook (cliente) e o daemon (servidor).
+# Usa `interprocess`, que abstrai named pipe (Windows) e unix socket (Linux/mac).
+[package]
+name = "chris-transport-ipc"
+version = "0.1.0"
+edition = "2021"
+description = "Transporte IPC local do CHRIS (named pipe / unix socket)."
+
+[dependencies]
+chris-core = { path = "../core" }
+interprocess = "2"
