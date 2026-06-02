@@ -7,8 +7,9 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- data-state controla a aparência: idle | alert | approved | denied -->
-    <div id="stage" data-state="idle">
+    <!-- data-state controla a aparência: idle | alert | approved | denied | pr
+         data-tauri-drag-region: permite arrastar o blob pela tela -->
+    <div id="stage" data-state="idle" data-tauri-drag-region>
       <div id="badge" hidden>+0</div>
 
       <div id="blob" title="Clique para pré-visualizar os estados">

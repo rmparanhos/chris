@@ -22,7 +22,7 @@ body {
 #blob {
   width: 150px;
   height: 150px;
-  cursor: pointer;
+  cursor: move;
   /* bob (sobe e desce de leve) */
   animation: bob 3.2s ease-in-out infinite;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));

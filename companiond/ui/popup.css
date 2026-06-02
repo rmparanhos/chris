@@ -1,3 +1,9 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
@@ -6,12 +12,18 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   user-select: none;
   -webkit-user-select: none;
+  /* sem barra de rolagem na janela */
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  padding: 8px;
 }
 
 #card {
-  box-sizing: border-box;
-  height: 100%;
-  margin: 8px;
+  flex: 1;
+  min-height: 0; /* permite que o conteúdo encolha em vez de estourar */
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
