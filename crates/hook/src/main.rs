@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use chris_adapters::{format_copilot, parse_copilot};
+use chris_adapters::{format_claude, format_copilot, parse_claude, parse_copilot};
 use chris_core::{Decision, Msg, ReqId};
 use chris_transport_ipc as transport;
 
@@ -37,8 +37,8 @@ fn print_help() {
     eprintln!(
         "CHRIS — Coding-agent Hook Review Interactive Sidekick\n\n\
          Uso:\n  \
-         chris hook    --agent <copilot>   (chamado pelo agente no preToolUse)\n  \
-         chris install --agent <copilot>   (instala a config de hook do agente)\n"
+         chris hook    --agent <copilot|claude>   (chamado pelo agente no PreToolUse)\n  \
+         chris install --agent <copilot|claude>   (instala a config de hook do agente)\n"
     );
 }
 
@@ -61,27 +61,33 @@ fn agent_arg(args: &[String]) -> String {
 
 fn run_hook(args: &[String]) {
     let agent = agent_arg(args);
-    if agent != "copilot" {
-        // MVP só fala Copilot. Não bloqueia: defere ao agente.
-        print!("{{}}");
+    // resposta de "deixa passar" no formato de cada agente (usada em erros)
+    let passthrough = if agent == "claude" { "" } else { "{}" };
+    if agent != "copilot" && agent != "claude" {
+        print!("{passthrough}");
         return;
     }
 
     // 1) lê o payload do agente no stdin
     let mut payload = String::new();
     if std::io::stdin().read_to_string(&mut payload).is_err() {
-        print!("{{}}"); // sem payload legível -> defere
+        print!("{passthrough}");
         return;
     }
 
     // 2) id único do pedido (nanos do relógio, truncado)
     let id = ReqId(now_nanos() as u32);
 
-    // 3) traduz para o formato neutro
-    let req = match parse_copilot(&payload, id) {
+    // 3) traduz para o formato neutro (parsing é igual nos dois agentes)
+    let parsed = if agent == "claude" {
+        parse_claude(&payload, id)
+    } else {
+        parse_copilot(&payload, id)
+    };
+    let req = match parsed {
         Ok(r) => r,
         Err(_) => {
-            print!("{{}}"); // não entendi o payload -> defere
+            print!("{passthrough}");
             return;
         }
     };
@@ -89,13 +95,17 @@ fn run_hook(args: &[String]) {
     // 4) pergunta ao daemon, com timeout
     let decision = ask_daemon(req);
 
-    // 5) responde ao agente no formato do Copilot
+    // 5) responde no formato do agente
     let reason = match decision {
         Decision::Allow => "aprovado pelo usuário no CHRIS",
         Decision::Deny => "negado/sem resposta no CHRIS",
         Decision::Defer => "",
     };
-    let resp = format_copilot(decision, reason);
+    let resp = if agent == "claude" {
+        format_claude(decision, reason)
+    } else {
+        format_copilot(decision, reason)
+    };
     print!("{}", resp.stdout);
     let _ = std::io::stdout().flush();
     std::process::exit(resp.exit_code);
@@ -144,20 +154,27 @@ fn now_nanos() -> u128 {
 
 fn run_install(args: &[String]) {
     let agent = agent_arg(args);
-    if agent != "copilot" {
-        eprintln!("install: por enquanto só `--agent copilot` é suportado.");
-        std::process::exit(2);
-    }
 
-    // caminho absoluto do próprio binário, para o agente achar o `chris`
+    // caminho absoluto do próprio binário (citado, por causa de espaços no Windows)
     let exe = std::env::current_exe()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "chris".to_string());
-    let invoke = format!("{exe} hook --agent copilot");
+    let exe_q = if exe.contains(' ') { format!("\"{exe}\"") } else { exe };
 
-    // Config do Copilot: .github/hooks/chris.json
+    match agent.as_str() {
+        "copilot" => install_copilot(&format!("{exe_q} hook --agent copilot")),
+        "claude" => install_claude(&format!("{exe_q} hook --agent claude")),
+        _ => {
+            eprintln!("install: use  --agent copilot  ou  --agent claude.");
+            std::process::exit(2);
+        }
+    }
+}
+
+/// Copilot: escreve `.github/hooks/chris.json`.
+fn install_copilot(invoke: &str) {
     // `timeoutSec` BEM maior que o nosso timeout interno, para o nosso `Deny`
-    // por inatividade chegar antes de o Copilot desistir.
+    // por inatividade chegar antes de o Copilot desistir do hook.
     let config = serde_json::json!({
         "version": 1,
         "hooks": {
@@ -179,13 +196,72 @@ fn run_install(args: &[String]) {
         std::process::exit(1);
     }
     let path = dir.join("chris.json");
-    let pretty = serde_json::to_string_pretty(&config).unwrap();
-    if let Err(e) = std::fs::write(&path, pretty) {
+    if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&config).unwrap()) {
         eprintln!("install: não consegui escrever {}: {e}", path.display());
         std::process::exit(1);
     }
-
     println!("Hook do Copilot instalado em {}", path.display());
+    println!("Comando do hook: {invoke}");
+    println!("Lembre: o daemon (companiond) precisa estar rodando para o blob reagir.");
+}
+
+/// Claude Code: MESCLA o hook em `.claude/settings.json` (não apaga o resto).
+fn install_claude(invoke: &str) {
+    let dir = std::path::Path::new(".claude");
+    if let Err(e) = std::fs::create_dir_all(dir) {
+        eprintln!("install: não consegui criar {}: {e}", dir.display());
+        std::process::exit(1);
+    }
+    let path = dir.join("settings.json");
+
+    // lê o settings existente (ou começa um objeto vazio)
+    let mut root: serde_json::Value = if path.exists() {
+        std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_else(|| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    if !root.is_object() {
+        root = serde_json::json!({});
+    }
+
+    // garante hooks.PreToolUse como array
+    let obj = root.as_object_mut().unwrap();
+    let hooks = obj.entry("hooks").or_insert_with(|| serde_json::json!({}));
+    if !hooks.is_object() {
+        *hooks = serde_json::json!({});
+    }
+    let pre = hooks
+        .as_object_mut()
+        .unwrap()
+        .entry("PreToolUse")
+        .or_insert_with(|| serde_json::json!([]));
+    if !pre.is_array() {
+        *pre = serde_json::json!([]);
+    }
+    let arr = pre.as_array_mut().unwrap();
+
+    // evita duplicar se já instalado
+    let exists = arr.iter().any(|e| {
+        e.get("hooks").and_then(|h| h.as_array()).map_or(false, |hs| {
+            hs.iter()
+                .any(|c| c.get("command").and_then(|x| x.as_str()) == Some(invoke))
+        })
+    });
+    if !exists {
+        arr.push(serde_json::json!({
+            "matcher": "*",
+            "hooks": [ { "type": "command", "command": invoke, "timeout": 600 } ]
+        }));
+    }
+
+    if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&root).unwrap()) {
+        eprintln!("install: não consegui escrever {}: {e}", path.display());
+        std::process::exit(1);
+    }
+    println!("Hook do Claude Code instalado/atualizado em {}", path.display());
     println!("Comando do hook: {invoke}");
     println!("Lembre: o daemon (companiond) precisa estar rodando para o blob reagir.");
 }

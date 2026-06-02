@@ -16,6 +16,6 @@ if [ ! -d "$proj" ]; then
   exit 1
 fi
 
-( cd "$proj" && "$chris" install --agent copilot )
+( cd "$proj" && "$chris" install --agent copilot && "$chris" install --agent claude )
 echo ""
-echo "Pronto! Deixe o companion rodando (./run.sh) e use o Copilot nesse projeto."
+echo "Pronto! Deixe o companion rodando (./run.sh) e use o Copilot ou o Claude Code nesse projeto."

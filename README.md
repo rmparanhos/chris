@@ -3,8 +3,8 @@
 **C**oding-agent **H**ook **R**eview **I**nteractive **S**idekick.
 
 Um companion de desktop (Rust + Tauri): quando o seu agente de codificação
-(Copilot CLI) vai rodar um comando, um **blob** na tela reage e você
-**aprova ou nega** num popup — sem voltar pro terminal.
+(**Copilot CLI** ou **Claude Code**) vai rodar um comando, um **blob** na tela
+reage e você **aprova ou nega** num popup — sem voltar pro terminal.
 
 > Quer entender o desenho/arquitetura? Veja [`DESIGN.md`](DESIGN.md).
 
@@ -41,11 +41,15 @@ demora — ele baixa e compila bastante coisa. Pode ir tomar um café.)
 janela aberta enquanto estiver usando.
 
 **Passo 3 — ligar no seu projeto:** duplo-clique em **`connect.bat`**, cole o
-caminho da pasta do projeto onde você usa o Copilot e tecle Enter.
+caminho da pasta do projeto e tecle Enter. Isso liga **tanto o Copilot CLI
+quanto o Claude Code** (cada um no arquivo de config dele; nada é sobrescrito).
 
-Pronto. Agora use o **Copilot CLI** nesse projeto: quando ele for rodar um
-comando, o blob fica **laranja** e abre o **popup** — clique **Permitir** ou
-**Negar** (ou `Esc` = negar).
+Pronto. Agora use o **Copilot CLI** ou o **Claude Code** nesse projeto: quando
+ele for rodar um comando, o blob fica **laranja** e abre o **popup** — clique
+**Permitir** ou **Negar** (ou `Esc` = negar).
+
+> Quer ligar só um deles? Rode na pasta do projeto:
+> `chris install --agent claude`  (ou `--agent copilot`).
 
 ---
 
@@ -104,7 +108,6 @@ cargo test     # 8 testes da lógica (não precisa de tela)
 
 ## Status
 
-✅ MVP completo: blob + bandeja, popup de aprovação, hook do Copilot,
-instalador automático e **notificações de Pull Request** (abrir/aprovar).
-Próximo (fase 2): adapters de Claude/Codex, "aprovar e lembrar" e o buddy
-físico em ESP32.
+✅ Blob + bandeja, popup de aprovação, hooks do **Copilot CLI e do Claude
+Code**, instalador automático e **notificações de Pull Request** (abrir/aprovar).
+Próximo (fase 2): adapter do Codex, "aprovar e lembrar" e o buddy físico em ESP32.

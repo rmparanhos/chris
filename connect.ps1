@@ -15,7 +15,8 @@ if (-not (Test-Path $proj)) {
 
 Push-Location $proj
 & $chris install --agent copilot
+& $chris install --agent claude
 Pop-Location
 
 Write-Host ""
-Write-Host "Pronto! Deixe o companion rodando (run.bat) e use o Copilot nesse projeto." -ForegroundColor Green
+Write-Host "Pronto! Deixe o companion rodando (run.bat) e use o Copilot ou o Claude Code nesse projeto." -ForegroundColor Green
