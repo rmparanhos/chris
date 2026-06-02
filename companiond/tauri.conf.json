@@ -12,6 +12,7 @@
       {
         "label": "blob",
         "title": "CHRIS",
+        "url": "index.html",
         "width": 180,
         "height": 200,
         "transparent": true,
@@ -21,6 +22,21 @@
         "resizable": false,
         "shadow": false,
         "center": false
+      },
+      {
+        "label": "popup",
+        "title": "CHRIS — aprovação",
+        "url": "popup.html",
+        "width": 400,
+        "height": 250,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "center": true
       }
     ],
     "security": {

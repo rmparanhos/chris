@@ -16,8 +16,9 @@ tauri-build = { version = "2", features = [] }
 # image-png: permite usar nosso ícone PNG na bandeja.
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 
-# o cérebro portável que fizemos no M0 (ainda não usado aqui; entra no M3)
+# o cérebro portável (M0) e o transporte IPC (M2)
 chris-core = { path = "../crates/core" }
+chris-transport-ipc = { path = "../crates/transport-ipc" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

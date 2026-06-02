@@ -34,8 +34,14 @@ bandeja para mostrar/ocultar ou sair.
 Como o blob (M1) é todo client-side, dá pra ver no navegador antes:
 abra `companiond/ui/index.html` direto no Chrome/Edge e clique nele.
 
-## O que ainda NÃO faz (próximos marcos)
+## Já faz (M3)
 
-- Conversar com o `companion-hook` por named pipe (M2).
-- Popup de aprovação e estado dirigido pelo daemon (M3).
-- Click-through na janela (deixar passar cliques quando for só decorativo).
+- Escuta o cano IPC e, a cada pedido, põe o blob em "alerta", abre o **popup**
+  de aprovação, espera o clique (ou timeout = Deny) e responde ao hook.
+
+## O que ainda NÃO faz
+
+- Click-through na janela (deixar passar cliques quando o blob for decorativo).
+- Fila visível com contador quando vários agentes pedem ao mesmo tempo
+  (hoje os pedidos são atendidos um a um, em ordem).
+- Adapters de Claude/Codex e notificações de PR (fase 2).

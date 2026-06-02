@@ -24,14 +24,23 @@ function setBlobState(state, count = 0) {
   }
 }
 
-// expõe a função globalmente (o Tauri poderá chamá-la via JS depois)
+// expõe a função globalmente
 window.setBlobState = setBlobState;
 
-// --- modo demonstração (só pra você ver os estados) ---
-// Clicar no blob percorre os estados em sequência.
-let i = 0;
-blob.addEventListener("click", () => {
-  i = (i + 1) % STATES.length;
-  const fakeCount = STATES[i] === "alert" ? 2 : 0;
-  setBlobState(STATES[i], fakeCount);
-});
+// Dentro do app: o daemon dirige o blob via evento "blob-state".
+const tauri = window.__TAURI__;
+if (tauri) {
+  tauri.event.listen("blob-state", (e) => {
+    const { state, count } = e.payload || {};
+    setBlobState(state, count || 0);
+  });
+} else {
+  // --- modo demonstração no navegador (sem Tauri) ---
+  // Clicar no blob percorre os estados em sequência.
+  let i = 0;
+  blob.addEventListener("click", () => {
+    i = (i + 1) % STATES.length;
+    const fakeCount = STATES[i] === "alert" ? 2 : 0;
+    setBlobState(STATES[i], fakeCount);
+  });
+}

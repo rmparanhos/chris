@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Permissões base da janela do blob.",
-  "windows": ["blob"],
-  "permissions": ["core:default"]
+  "description": "Permissões base das janelas do CHRIS (blob e popup).",
+  "windows": ["blob", "popup"],
+  "permissions": ["core:default", "core:event:default"]
 }

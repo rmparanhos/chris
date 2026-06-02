@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHRIS — aprovação</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div id="card" data-risk="low">
+      <header>
+        <span id="risk" class="risk">LOW</span>
+        <span id="agent" class="agent">Copilot</span>
+      </header>
+
+      <div id="tool" class="tool">shell</div>
+      <pre id="summary" class="summary">(comando)</pre>
+      <div id="cwd" class="cwd"></div>
+
+      <footer>
+        <button id="deny" class="deny">Negar</button>
+        <button id="allow" class="allow">Permitir</button>
+      </footer>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
