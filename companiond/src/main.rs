@@ -10,6 +10,7 @@
 //!     3. espera o clique (Allow/Deny) ou o timeout (-> Deny);
 //!     4. responde a decisão de volta para o hook.
 
+use std::collections::HashSet;
 use std::sync::mpsc::{self, Sender};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -42,21 +43,106 @@ fn decide(state: State<AppState>, id: u32, allow: bool) {
     }
 }
 
+/// Abre uma URL no navegador padrão (chamado pelo botão "Abrir" do popup de PR).
+#[tauri::command]
+fn open_url(url: String) {
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", &url]).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(target_os = "linux")]
+    let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+}
+
+/// Aprova um PR (botão "Aprovar" do popup de PR).
+#[tauri::command]
+fn approve_pr(owner: String, repo: String, number: u64) -> Result<(), String> {
+    let token = chris_github::discover_token().ok_or("sem token do GitHub")?;
+    chris_github::approve_pr(&token, &owner, &repo, number).map_err(|e| format!("{e:?}"))
+}
+
+/// Fecha o popup de PR e volta o blob para idle (botões "Aprovar"/"Dispensar").
+#[tauri::command]
+fn hide_pr(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("pr") {
+        let _ = w.hide();
+    }
+    let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"idle","count":0}));
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![decide])
+        .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr])
         .setup(|app| {
             setup_tray(app.handle())?;
 
-            // sobe o servidor IPC numa thread de fundo
+            // sobe o servidor IPC (aprovações do agente) numa thread de fundo
             let handle = app.handle().clone();
             std::thread::spawn(move || ipc_loop(handle));
+
+            // sobe o polling de Pull Requests numa outra thread
+            let handle = app.handle().clone();
+            std::thread::spawn(move || pr_loop(handle));
 
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o CHRIS");
+}
+
+/// Laço de notificações de PR: a cada minuto procura PRs que pedem sua revisão
+/// e avisa sobre os novos. Sem token do GitHub, fica desativado.
+fn pr_loop(app: AppHandle) {
+    let token = match chris_github::discover_token() {
+        Some(t) => t,
+        None => {
+            eprintln!("CHRIS: sem token do GitHub — notificações de PR desativadas.");
+            return;
+        }
+    };
+
+    let mut seen: HashSet<u64> = HashSet::new();
+    let mut first_pass = true;
+
+    loop {
+        if let Ok(prs) = chris_github::fetch_review_requests(&token) {
+            let novos = chris_github::only_new(&seen, &prs);
+            for p in &prs {
+                seen.insert(p.id);
+            }
+            // na primeira passada só registra (não avisa dos que já existiam)
+            if !first_pass {
+                for p in novos {
+                    notify_pr(&app, &p);
+                    std::thread::sleep(Duration::from_secs(8));
+                }
+            }
+            first_pass = false;
+        }
+        std::thread::sleep(Duration::from_secs(60));
+    }
+}
+
+/// Faz o blob reagir a um PR e abre o popup de PR com os detalhes.
+fn notify_pr(app: &AppHandle, pr: &chris_github::PrItem) {
+    let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"pr","count":0}));
+    let _ = app.emit_to(
+        "pr",
+        "pr",
+        serde_json::json!({
+            "owner": pr.owner,
+            "repo": pr.repo,
+            "number": pr.number,
+            "title": pr.title,
+            "author": pr.author,
+            "url": pr.url,
+        }),
+    );
+    if let Some(win) = app.get_webview_window("pr") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
 }
 
 /// Monta o ícone e o menu da bandeja.

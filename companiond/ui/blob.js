@@ -7,7 +7,7 @@ const stage = document.getElementById("stage");
 const badge = document.getElementById("badge");
 const blob = document.getElementById("blob");
 
-const STATES = ["idle", "alert", "approved", "denied"];
+const STATES = ["idle", "alert", "approved", "denied", "pr"];
 
 /** Muda o estado visual do blob. Será chamada pelo backend no futuro.
  *  @param {string} state  idle | alert | approved | denied

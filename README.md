@@ -67,6 +67,22 @@ No terminal, dentro da pasta do projeto:
 - Se o **companion estiver desligado** → o Copilot usa o prompt normal dele;
   você nunca fica travado.
 
+## Notificações de Pull Request
+
+O companion também avisa quando um **PR pede a sua revisão**: o blob fica
+**azul** e abre um popup com o título do PR e os botões **Abrir** (no navegador)
+e **Aprovar** (manda o review de aprovação direto).
+
+Para ligar, o CHRIS precisa de um token do GitHub. Use **uma** opção:
+
+- Tenha o **GitHub CLI** logado (`gh auth login`) — o CHRIS pega o token
+  sozinho; **ou**
+- Defina a variável de ambiente `GITHUB_TOKEN` com um token (escopo `repo`)
+  antes de iniciar o `run.bat`/`run.sh`.
+
+Sem token, as notificações de PR ficam simplesmente desligadas (o resto funciona
+normal).
+
 ---
 
 ## Conferir que está tudo certo (opcional, para devs)
@@ -88,6 +104,7 @@ cargo test     # 8 testes da lógica (não precisa de tela)
 
 ## Status
 
-✅ MVP completo: blob + bandeja, popup de aprovação, hook do Copilot e
-instalador automático. Próximo (fase 2): Claude/Codex, "aprovar e lembrar",
-notificações de Pull Request e o buddy físico em ESP32.
+✅ MVP completo: blob + bandeja, popup de aprovação, hook do Copilot,
+instalador automático e **notificações de Pull Request** (abrir/aprovar).
+Próximo (fase 2): adapters de Claude/Codex, "aprovar e lembrar" e o buddy
+físico em ESP32.

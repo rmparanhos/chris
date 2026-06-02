@@ -116,6 +116,15 @@ body {
   display: block;
 }
 
+/* pr: azul, dá um pulinho, sorri (chegou um Pull Request) */
+[data-state="pr"] .body {
+  fill: #539bf5;
+  animation: hop 0.7s ease;
+}
+[data-state="pr"] .mouth.smile {
+  display: block;
+}
+
 /* ---------- keyframes ---------- */
 @keyframes bob {
   0%, 100% { transform: translateY(0); }

@@ -37,6 +37,21 @@
         "resizable": false,
         "shadow": false,
         "center": true
+      },
+      {
+        "label": "pr",
+        "title": "CHRIS — Pull Request",
+        "url": "pr.html",
+        "width": 400,
+        "height": 230,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "center": true
       }
     ],
     "security": {
