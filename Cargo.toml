@@ -1,0 +1,7 @@
+# Workspace raiz do CHRIS.
+# Um "workspace" agrupa várias crates (pacotes Rust) que compilam juntas e
+# compartilham dependências. Por enquanto só temos o cérebro (`core`); as
+# bordas (hook, daemon Tauri, firmware ESP32) entram nos próximos marcos.
+[workspace]
+resolver = "2"
+members = ["crates/core"]

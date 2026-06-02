@@ -1,8 +1,7 @@
-# Familiar — Design
+# CHRIS — Design
 
-> **Codinome provisório:** "Familiar" (um *familiar* é a criatura-companheira
-> mágica, agnóstica a qual bruxo/agente serve — encaixa com o blob + multi-agente).
-> Nome a definir.
+> **CHRIS** = **C**oding-agent **H**ook **R**eview **I**nteractive **S**idekick.
+> O companion agnóstico a agente, baseado em hooks, que reage a aprovações.
 
 ## 1. Conceito
 
@@ -166,7 +165,7 @@ contador no blob ("+2"). Pilha de cards fica para depois.
 
 ## 6. Especificidades de plataforma (Windows primeiro)
 
-- **IPC:** named pipe `\\.\pipe\familiar` com ACL — só o usuário corrente. Importante:
+- **IPC:** named pipe `\\.\pipe\chris` com ACL — só o usuário corrente. Importante:
   quem fala com o daemon pode autorizar execução de código.
 - **Janela do blob:** `transparent + decorations:false + alwaysOnTop + skipTaskbar`
   e **click-through** (`set_ignore_cursor_events`); desligar a sombra da janela.
@@ -220,7 +219,7 @@ contador no blob ("+2"). Pilha de cards fica para depois.
 
 | # | Item | Default assumido |
 |---|------|------------------|
-| 1 | Nome do projeto | "Familiar" (provisório) |
+| 1 | ~~Nome do projeto~~ | ✅ **CHRIS** (Coding-agent Hook Review Interactive Sidekick) |
 | 2 | Allowlist / "approve & remember" | Fase 2 |
 | 3 | Heurística de risco | Simples (ver §5) |
 | 4 | Link do ESP32 | A decidir (não bloqueia o MVP) |
