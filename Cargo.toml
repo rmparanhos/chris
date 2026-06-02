@@ -4,4 +4,8 @@
 # bordas (hook, daemon Tauri, firmware ESP32) entram nos próximos marcos.
 [workspace]
 resolver = "2"
-members = ["crates/core"]
+members = ["crates/core", "companiond"]
+# `cargo build`/`cargo test` sem argumentos mexem só no cérebro (core), que
+# compila em qualquer lugar. O app Tauri (companiond) precisa de webview do
+# sistema, então é compilado explicitamente com `-p companiond` na máquina alvo.
+default-members = ["crates/core"]

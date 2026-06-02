@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Permissões base da janela do blob.",
+  "windows": ["blob"],
+  "permissions": ["core:default"]
+}

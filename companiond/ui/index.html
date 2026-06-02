@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHRIS</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- data-state controla a aparência: idle | alert | approved | denied -->
+    <div id="stage" data-state="idle">
+      <div id="badge" hidden>+0</div>
+
+      <div id="blob" title="Clique para pré-visualizar os estados">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <ellipse class="body" cx="50" cy="56" rx="36" ry="33" />
+
+          <!-- olhos -->
+          <circle class="eye" cx="40" cy="50" r="4.5" />
+          <circle class="eye" cx="60" cy="50" r="4.5" />
+
+          <!-- bocas: só uma fica visível por estado (via CSS) -->
+          <path class="mouth neutral" d="M42 66 H58" />
+          <path class="mouth smile" d="M41 64 Q50 74 59 64" />
+          <path class="mouth frown" d="M41 70 Q50 62 59 70" />
+          <circle class="mouth o" cx="50" cy="67" r="4" />
+
+          <!-- emote que aparece no alerta -->
+          <text class="emote" x="78" y="26">!</text>
+        </svg>
+      </div>
+    </div>
+
+    <script src="blob.js"></script>
+  </body>
+</html>
