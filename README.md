@@ -12,98 +12,82 @@ Um companion de desktop (Rust + Tauri): quando o seu agente de codificação
 
 ## 1. Ver o visual em 30 segundos (sem instalar nada)
 
-Abra estes arquivos direto no seu navegador (duplo-clique):
+Abra estes arquivos no navegador (duplo-clique):
 
-- `companiond/ui/index.html` → o **blob**. Clique nele pra ver os estados
-  (idle → alerta → aprovado → negado).
+- `companiond/ui/index.html` → o **blob**. Clique nele pra ver os estados.
 - `companiond/ui/popup.html` → o **popup** de aprovação (exemplo `rm -rf`).
 
 Isso é só a aparência. Pra funcionar de verdade, siga abaixo.
 
 ---
 
-## 2. Rodar de verdade
+## 2. Instalar e rodar — Windows (automático)
 
-### 2.1 Pré-requisitos (uma vez)
+Não precisa saber nada de Rust: os scripts instalam tudo (Rust, ferramentas de
+compilação e o WebView2) e compilam o projeto.
 
-- **Rust**: instale em https://rustup.rs
-- **Windows**: instale o "Desktop development with C++" (Microsoft C++ Build
-  Tools). O WebView2 já vem no Windows 10/11.
-- **Linux**: precisa das libs do WebKitGTK (ex. no Ubuntu:
-  `sudo apt install libwebkit2gtk-4.1-dev build-essential`).
-- **macOS**: Xcode Command Line Tools (`xcode-select --install`).
+**Passo 0 — baixar o código:** nesta página do GitHub, clique no botão verde
+**`Code` → `Download ZIP`**, e extraia a pasta (botão direito → Extrair tudo).
 
-### 2.2 Passo a passo
+**Passo 1 — instalar:** entre na pasta extraída e dê **duplo-clique em
+`setup.bat`**. Aceite os pedidos de permissão do Windows. (A primeira vez
+demora — ele baixa e compila bastante coisa. Pode ir tomar um café.)
 
-Rode tudo **na pasta raiz do projeto**, em dois terminais.
+> Se ao final ele pedir para "fechar a janela e rodar de novo", é só fechar e
+> dar duplo-clique no `setup.bat` mais uma vez.
 
-**Terminal 1 — liga o companion (deixe aberto):**
+**Passo 2 — iniciar o companion:** duplo-clique em **`run.bat`**.
+➡️ O **blob** aparece na tela e um ícone do CHRIS vai pra bandeja. Deixe essa
+janela aberta enquanto estiver usando.
 
-```bash
-cargo run -p companiond
-```
+**Passo 3 — ligar no seu projeto:** duplo-clique em **`connect.bat`**, cole o
+caminho da pasta do projeto onde você usa o Copilot e tecle Enter.
 
-➡️ Deve aparecer o **blob** na tela e um ícone do CHRIS na bandeja do sistema.
-(A primeira compilação demora alguns minutos.)
-
-**Terminal 2 — conecta o Copilot ao CHRIS:**
-
-```bash
-# 1) compila a CLI `chris`
-cargo build -p chris-cli
-
-# 2) entre na pasta do projeto onde você usa o Copilot e instale o hook
-cd /caminho/do/seu/projeto
-# Windows:
-C:\caminho\do\chris\target\debug\chris.exe install --agent copilot
-# Linux/macOS:
-/caminho/do/chris/target/debug/chris install --agent copilot
-```
-
-➡️ Isso cria um arquivo `.github/hooks/chris.json` no seu projeto. Não precisa
-colocar o `chris` no PATH: o instalador grava o caminho completo do binário.
-
-### 2.3 Usar
-
-Use o **Copilot CLI** normalmente nesse projeto. Quando ele for executar um
-comando:
-
-1. o blob fica **laranja (alerta)**;
-2. abre o **popup** com o comando e o nível de risco;
-3. clique **Permitir** ou **Negar** (ou `Esc` = negar).
-
-Regras automáticas:
-- Se você **não responder a tempo** → **nega** (seguro).
-- Se o **companion estiver desligado** → o Copilot usa o prompt normal dele
-  (você não fica travado).
+Pronto. Agora use o **Copilot CLI** nesse projeto: quando ele for rodar um
+comando, o blob fica **laranja** e abre o **popup** — clique **Permitir** ou
+**Negar** (ou `Esc` = negar).
 
 ---
 
-## 3. Conferir que está tudo certo (opcional)
+## 3. Instalar e rodar — Linux/macOS
 
-Rodar os testes da lógica (não precisa de tela):
+No terminal, dentro da pasta do projeto:
 
 ```bash
-cargo test
+./setup.sh                      # instala tudo e compila
+./run.sh                        # inicia o companion (deixe aberto)
+./connect.sh /caminho/do/projeto   # liga o CHRIS ao Copilot nesse projeto
 ```
-
-➡️ Deve mostrar **8 testes ok** (core, transporte, adapters e o teste
-ponta-a-ponta do hook).
 
 ---
 
-## 4. Mapa do projeto
+## Regras automáticas (bom saber)
 
-| Pasta | O que é |
-|-------|---------|
-| `companiond` | O app que você roda: blob, bandeja e popup. |
+- Se você **não responder a tempo** → o CHRIS **nega** (seguro).
+- Se o **companion estiver desligado** → o Copilot usa o prompt normal dele;
+  você nunca fica travado.
+
+---
+
+## Conferir que está tudo certo (opcional, para devs)
+
+```bash
+cargo test     # 8 testes da lógica (não precisa de tela)
+```
+
+## Mapa do projeto
+
+| Pasta / arquivo | O que é |
+|-----------------|---------|
+| `setup.* / run.* / connect.*` | Os scripts de instalar, iniciar e conectar. |
+| `companiond` | O app: blob, bandeja e popup. |
 | `crates/hook` | A CLI `chris` (`hook` + `install`). |
 | `crates/adapters` | Tradução do formato do Copilot ⇄ formato interno. |
-| `crates/transport-ipc` | A comunicação entre o `chris` e o `companiond`. |
+| `crates/transport-ipc` | Comunicação entre o `chris` e o `companiond`. |
 | `crates/core` | O "cérebro" (regras), portável até pra ESP32. |
 
 ## Status
 
 ✅ MVP completo: blob + bandeja, popup de aprovação, hook do Copilot e
-instalador. Próximo (fase 2): Claude/Codex, "aprovar e lembrar", notificações
-de Pull Request e o buddy físico em ESP32.
+instalador automático. Próximo (fase 2): Claude/Codex, "aprovar e lembrar",
+notificações de Pull Request e o buddy físico em ESP32.
