@@ -6,6 +6,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag/versao a publicar (ex.: v0.1.0)"
+        required: true
+        default: "v0.1.0"
 
 jobs:
   windows:
@@ -23,8 +28,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: companiond
-          tagName: ${{ github.ref_name }}
-          releaseName: "CHRIS ${{ github.ref_name }}"
+          tagName: ${{ github.event.inputs.version || github.ref_name }}
+          releaseName: "CHRIS ${{ github.event.inputs.version || github.ref_name }}"
           releaseBody: "Instalador do CHRIS para Windows — baixe o .msi ou o .exe (NSIS) abaixo."
           releaseDraft: false
           prerelease: false
