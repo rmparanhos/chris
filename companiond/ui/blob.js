@@ -27,6 +27,30 @@ function setBlobState(state, count = 0) {
 // expõe a função globalmente
 window.setBlobState = setBlobState;
 
+// ---------- seletor de personagem (sprite) ----------
+const SPRITES = ["blob", "cat"];
+
+function setSprite(name) {
+  if (!SPRITES.includes(name)) return;
+  stage.dataset.sprite = name;
+  document.querySelectorAll("#picker button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.sprite === name);
+  });
+  try {
+    localStorage.setItem("chris.sprite", name);
+  } catch (_) {}
+}
+window.setSprite = setSprite;
+
+// restaura a última escolha e liga os botões
+setSprite(localStorage.getItem("chris.sprite") || "blob");
+document.querySelectorAll("#picker button").forEach((b) => {
+  b.addEventListener("click", (e) => {
+    e.stopPropagation(); // não dispara o ciclo de estados do blob
+    setSprite(b.dataset.sprite);
+  });
+});
+
 // Dentro do app: o daemon dirige o blob via evento "blob-state".
 const tauri = window.__TAURI__;
 if (tauri) {

@@ -22,10 +22,72 @@ body {
 #blob {
   width: 150px;
   height: 150px;
+  position: relative;
   cursor: move;
   /* bob (sobe e desce de leve) */
   animation: bob 3.2s ease-in-out infinite;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));
+}
+
+/* os dois sprites ocupam o mesmo espaço; só o ativo aparece */
+.sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+[data-sprite="blob"] #sprite-cat {
+  display: none;
+}
+[data-sprite="cat"] #sprite-blob {
+  display: none;
+}
+
+/* detalhes do gato */
+.ear {
+  fill: #34cdd6; /* segue a cor do corpo no idle */
+  transition: fill 0.3s ease;
+}
+.ear-inner {
+  fill: #ffd1dc;
+}
+.cat-nose {
+  fill: #08343a;
+}
+.whiskers path {
+  fill: none;
+  stroke: #08343a;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* seletor de personagem */
+#picker {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#stage:hover #picker {
+  opacity: 1;
+}
+#picker button {
+  width: 30px;
+  height: 26px;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.35);
+}
+#picker button.active {
+  background: rgba(0, 0, 0, 0.6);
+  outline: 2px solid #fff;
 }
 
 /* o corpo respira (escala) e muda de cor por estado */
@@ -124,6 +186,12 @@ body {
 [data-state="pr"] .mouth.smile {
   display: block;
 }
+
+/* orelhas do gato acompanham a cor do corpo em cada estado */
+[data-state="alert"] .ear { fill: #ff9f43; }
+[data-state="approved"] .ear { fill: #2ecc71; }
+[data-state="denied"] .ear { fill: #ff6b6b; }
+[data-state="pr"] .ear { fill: #539bf5; }
 
 /* ---------- keyframes ---------- */
 @keyframes bob {
