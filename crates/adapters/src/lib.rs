@@ -109,20 +109,35 @@ pub fn parse_copilot(payload: &str, id: ReqId) -> Result<ApprovalRequest, Adapte
 /// - `Allow`/`Deny` -> `{"permissionDecision": "...", ...}`
 /// - `Defer`        -> `{}` (cai no prompt nativo do Copilot)
 pub fn format_copilot(decision: Decision, reason: &str) -> AgentResponse {
-    let stdout = match decision {
-        Decision::Allow => serde_json::json!({
-            "permissionDecision": "allow",
-            "permissionDecisionReason": reason
-        })
-        .to_string(),
-        Decision::Deny => serde_json::json!({
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason
-        })
-        .to_string(),
-        Decision::Defer => "{}".to_string(),
-    };
-    AgentResponse { stdout, exit_code: 0 }
+    match decision {
+        // inclui tanto `permissionDecision` (estilo VS Code) quanto `behavior`
+        // (campo interno do Copilot), para o "allow" suprimir o prompt nativo
+        // em todas as versões.
+        Decision::Allow => AgentResponse {
+            stdout: serde_json::json!({
+                "permissionDecision": "allow",
+                "permissionDecisionReason": reason,
+                "behavior": "allow"
+            })
+            .to_string(),
+            exit_code: 0,
+        },
+        // exit code 2 é o sinal de "deny" mais confiável do Copilot; o JSON reforça.
+        Decision::Deny => AgentResponse {
+            stdout: serde_json::json!({
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+                "behavior": "deny"
+            })
+            .to_string(),
+            exit_code: 2,
+        },
+        // Defer: saída vazia -> Copilot usa o fluxo de permissão dele.
+        Decision::Defer => AgentResponse {
+            stdout: "{}".to_string(),
+            exit_code: 0,
+        },
+    }
 }
 
 // ===========================================================================
@@ -193,9 +208,15 @@ mod tests {
 
     #[test]
     fn format_copilot_variants() {
-        assert!(format_copilot(Decision::Allow, "ok")
-            .stdout
-            .contains("\"permissionDecision\":\"allow\""));
+        let allow = format_copilot(Decision::Allow, "ok");
+        assert!(allow.stdout.contains("\"permissionDecision\":\"allow\""));
+        assert!(allow.stdout.contains("\"behavior\":\"allow\""));
+        assert_eq!(allow.exit_code, 0);
+
+        let deny = format_copilot(Decision::Deny, "no");
+        assert!(deny.stdout.contains("\"behavior\":\"deny\""));
+        assert_eq!(deny.exit_code, 2); // exit 2 = deny confiável
+
         assert_eq!(format_copilot(Decision::Defer, "").stdout, "{}");
     }
 

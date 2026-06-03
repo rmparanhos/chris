@@ -139,9 +139,9 @@ fn notify_pr(app: &AppHandle, pr: &chris_github::PrItem) {
             "url": pr.url,
         }),
     );
+    // mostra SEM roubar o foco
     if let Some(win) = app.get_webview_window("pr") {
         let _ = win.show();
-        let _ = win.set_focus();
     }
 }
 
@@ -220,9 +220,9 @@ fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decisio
             "risk": format!("{:?}", req.risk).to_lowercase(),
         }),
     );
+    // mostra SEM roubar o foco (não interrompe sua digitação no terminal)
     if let Some(win) = app.get_webview_window("popup") {
         let _ = win.show();
-        let _ = win.set_focus();
     }
 
     // registra o canal de decisão e espera
