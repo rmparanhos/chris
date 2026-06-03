@@ -20,7 +20,7 @@ use chris_transport_ipc as transport;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, State,
+    AppHandle, Emitter, Manager, PhysicalPosition, State, WindowEvent,
 };
 
 /// Mesmo timeout do hook (deny se ninguém responder a tempo).
@@ -70,12 +70,49 @@ fn hide_pr(app: AppHandle) {
     let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"idle","count":0}));
 }
 
+/// Cola a janela `label` (popup/pr) junto ao blob: por padrão logo acima dele,
+/// centralizada na horizontal. Se não couber em cima, vai para baixo.
+/// É o que faz a notificação "andar junto" com o blob.
+fn position_near_blob(app: &AppHandle, label: &str) {
+    let (Some(blob), Some(win)) = (app.get_webview_window("blob"), app.get_webview_window(label))
+    else {
+        return;
+    };
+    if let (Ok(bpos), Ok(bsize), Ok(wsize)) =
+        (blob.outer_position(), blob.outer_size(), win.outer_size())
+    {
+        let gap: i32 = 10;
+        let x = bpos.x + (bsize.width as i32 - wsize.width as i32) / 2;
+        let mut y = bpos.y - wsize.height as i32 - gap; // acima do blob
+        if y < 0 {
+            y = bpos.y + bsize.height as i32 + gap; // não cabe em cima -> embaixo
+        }
+        let _ = win.set_position(PhysicalPosition::new(x, y));
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr])
         .setup(|app| {
             setup_tray(app.handle())?;
+
+            // quando o blob é arrastado, as notificações visíveis o acompanham
+            if let Some(blob) = app.get_webview_window("blob") {
+                let h = app.handle().clone();
+                blob.on_window_event(move |event| {
+                    if matches!(event, WindowEvent::Moved(_)) {
+                        for label in ["popup", "pr"] {
+                            if let Some(w) = h.get_webview_window(label) {
+                                if w.is_visible().unwrap_or(false) {
+                                    position_near_blob(&h, label);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
 
             // sobe o servidor IPC (aprovações do agente) numa thread de fundo
             let handle = app.handle().clone();
@@ -139,7 +176,8 @@ fn notify_pr(app: &AppHandle, pr: &chris_github::PrItem) {
             "url": pr.url,
         }),
     );
-    // mostra SEM roubar o foco
+    // posiciona junto ao blob e mostra SEM roubar o foco
+    position_near_blob(app, "pr");
     if let Some(win) = app.get_webview_window("pr") {
         let _ = win.show();
     }
@@ -220,7 +258,8 @@ fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decisio
             "risk": format!("{:?}", req.risk).to_lowercase(),
         }),
     );
-    // mostra SEM roubar o foco (não interrompe sua digitação no terminal)
+    // posiciona junto ao blob e mostra SEM roubar o foco
+    position_near_blob(app, "popup");
     if let Some(win) = app.get_webview_window("popup") {
         let _ = win.show();
     }

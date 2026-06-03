@@ -37,7 +37,7 @@
         "skipTaskbar": true,
         "resizable": false,
         "shadow": false,
-        "center": true
+        "center": false
       },
       {
         "label": "pr",
@@ -53,7 +53,7 @@
         "skipTaskbar": true,
         "resizable": false,
         "shadow": false,
-        "center": true
+        "center": false
       }
     ],
     "security": {
