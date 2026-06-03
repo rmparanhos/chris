@@ -12,9 +12,10 @@ description = "CHRIS daemon: blob na bandeja + janela transparente (Tauri v2)."
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# tray-icon: ícone na bandeja do sistema.
-# image-png: permite usar nosso ícone PNG na bandeja.
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+# tray-icon: ícone na bandeja. image-png: ícone PNG na bandeja.
+# macos-private-api: exigida porque o tauri.conf.json usa macOSPrivateApi
+# (janela transparente no macOS).
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
 
 # o cérebro portável (M0), o transporte IPC (M2) e a integração GitHub (PRs)
 chris-core = { path = "../crates/core" }
