@@ -2,8 +2,8 @@
 # Liga o CHRIS ao Copilot CLI: escreve o hook na pasta do seu projeto.
 # Uso:  ./connect.sh [/caminho/do/projeto]   (sem argumento = pasta atual)
 set -euo pipefail
-here="$(cd "$(dirname "$0")" && pwd)"
-chris="$here/target/release/chris"
+root="$(cd "$(dirname "$0")/.." && pwd)"
+chris="$root/target/release/chris"
 
 if [ ! -x "$chris" ]; then
   echo "O CHRIS ainda nao foi compilado. Rode ./setup.sh primeiro." >&2

@@ -1,5 +1,5 @@
 # Liga o CHRIS ao Copilot CLI: escreve o hook na pasta do seu projeto.
-$chris = Join-Path $PSScriptRoot "target\release\chris.exe"
+$chris = Join-Path (Split-Path $PSScriptRoot -Parent) "target\release\chris.exe"
 if (-not (Test-Path $chris)) {
     Write-Host "O CHRIS ainda nao foi compilado. Rode o setup.bat primeiro." -ForegroundColor Red
     exit 1

@@ -2,112 +2,143 @@
 
 **C**oding-agent **H**ook **R**eview **I**nteractive **S**idekick.
 
-Um companion de desktop (Rust + Tauri): quando o seu agente de codificação
-(**Copilot CLI** ou **Claude Code**) vai rodar um comando, um **blob** na tela
-reage e você **aprova ou nega** num popup — sem voltar pro terminal.
+A desktop companion (Rust + Tauri): when your coding agent (**GitHub Copilot
+CLI** or **Claude Code**) is about to run a command, a little **blob** on your
+screen reacts and you **approve or deny** it from a popup — without going back
+to the terminal. It also pings you when a **Pull Request** needs your review,
+and lets you approve it on the spot.
 
-> Quer entender o desenho/arquitetura? Veja [`DESIGN.md`](DESIGN.md).
+> Inspired by the **Claude Buddy** project, but **agnostic to the coding agent**
+> (Copilot today, Claude Code, and Codex/others next) and built on **hooks**
+> instead of wrapping the terminal.
 
----
-
-## 1. Ver o visual em 30 segundos (sem instalar nada)
-
-Abra estes arquivos no navegador (duplo-clique):
-
-- `companiond/ui/index.html` → o **blob**. Clique nele pra ver os estados.
-- `companiond/ui/popup.html` → o **popup** de aprovação (exemplo `rm -rf`).
-
-Isso é só a aparência. Pra funcionar de verdade, siga abaixo.
+> Architecture & design notes (in Portuguese): [`DESIGN.md`](DESIGN.md).
 
 ---
 
-## 2. Instalar e rodar — Windows (automático)
+## How it works
 
-Não precisa saber nada de Rust: os scripts instalam tudo (Rust, ferramentas de
-compilação e o WebView2) e compilam o projeto.
-
-**Passo 0 — baixar o código:** nesta página do GitHub, clique no botão verde
-**`Code` → `Download ZIP`**, e extraia a pasta (botão direito → Extrair tudo).
-
-**Passo 1 — instalar:** entre na pasta extraída e dê **duplo-clique em
-`setup.bat`**. Aceite os pedidos de permissão do Windows. (A primeira vez
-demora — ele baixa e compila bastante coisa. Pode ir tomar um café.)
-
-> Se ao final ele pedir para "fechar a janela e rodar de novo", é só fechar e
-> dar duplo-clique no `setup.bat` mais uma vez.
-
-**Passo 2 — iniciar o companion:** duplo-clique em **`run.bat`**.
-➡️ O **blob** aparece na tela e um ícone do CHRIS vai pra bandeja. Deixe essa
-janela aberta enquanto estiver usando.
-
-**Passo 3 — ligar no seu projeto:** duplo-clique em **`connect.bat`**, cole o
-caminho da pasta do projeto e tecle Enter. Isso liga **tanto o Copilot CLI
-quanto o Claude Code** (cada um no arquivo de config dele; nada é sobrescrito).
-
-Pronto. Agora use o **Copilot CLI** ou o **Claude Code** nesse projeto: quando
-ele for rodar um comando, o blob fica **laranja** e abre o **popup** — clique
-**Permitir** ou **Negar** (ou `Esc` = negar).
-
-> Quer ligar só um deles? Rode na pasta do projeto:
-> `chris install --agent claude`  (ou `--agent copilot`).
-
----
-
-## 3. Instalar e rodar — Linux/macOS
-
-No terminal, dentro da pasta do projeto:
-
-```bash
-./setup.sh                      # instala tudo e compila
-./run.sh                        # inicia o companion (deixe aberto)
-./connect.sh /caminho/do/projeto   # liga o CHRIS ao Copilot nesse projeto
+```
+agent fires PreToolUse
+   │ (payload on stdin, and waits)
+   ▼
+chris hook ──IPC (named pipe)──▶ companiond (Tauri)
+   ▲                               blob reacts + approval popup
+   └──────── decision ─────────────┘
 ```
 
----
-
-## Regras automáticas (bom saber)
-
-- Se você **não responder a tempo** → o CHRIS **nega** (seguro).
-- Se o **companion estiver desligado** → o Copilot usa o prompt normal dele;
-  você nunca fica travado.
-
-## Notificações de Pull Request
-
-O companion também avisa quando um **PR pede a sua revisão**: o blob fica
-**azul** e abre um popup com o título do PR e os botões **Abrir** (no navegador)
-e **Aprovar** (manda o review de aprovação direto).
-
-Para ligar, o CHRIS precisa de um token do GitHub. Use **uma** opção:
-
-- Tenha o **GitHub CLI** logado (`gh auth login`) — o CHRIS pega o token
-  sozinho; **ou**
-- Defina a variável de ambiente `GITHUB_TOKEN` com um token (escopo `repo`)
-  antes de iniciar o `run.bat`/`run.sh`.
-
-Sem token, as notificações de PR ficam simplesmente desligadas (o resto funciona
-normal).
+- **Timeout** (you saw it but didn't answer) → **Deny** (safe).
+- **Companion not running** (nobody saw it) → **Defer**: the agent falls back to
+  its own native prompt, so you're never blocked nor unprotected.
 
 ---
 
-## Conferir que está tudo certo (opcional, para devs)
+## Get it running
+
+### Option A — Prebuilt installer (Windows, easiest)
+
+Once a release is published, go to the **Releases** page and download the
+`.msi` (or `.exe`) installer. Install, launch **CHRIS**, and skip to
+[Connect it to a project](#connect-it-to-a-project). No Rust, no compiling.
+
+> Releases are produced automatically by GitHub Actions whenever a `v*` tag is
+> pushed (see `.github/workflows/release.yml`).
+
+### Option B — Build from source (one script)
+
+You don't need to know Rust — the scripts install everything (Rust, build
+tools, WebView2) and compile the project.
+
+**Windows**
+
+1. On this GitHub page: **`Code` → `Download ZIP`**, then extract.
+2. Open the `scripts` folder and **double-click `setup.bat`** (accept the
+   Windows prompts; the first build takes a while).
+3. Double-click **`run.bat`** → the **blob** appears and an icon lands in the
+   tray. Keep that window open.
+
+**Linux / macOS**
 
 ```bash
-cargo test     # 8 testes da lógica (não precisa de tela)
+./scripts/setup.sh     # installs everything and builds
+./scripts/run.sh       # starts the companion (keep it open)
 ```
 
-## Mapa do projeto
+### Connect it to a project
 
-| Pasta / arquivo | O que é |
-|-----------------|---------|
-| `setup.* / run.* / connect.*` | Os scripts de instalar, iniciar e conectar. |
-| `companiond` | O app: blob, bandeja e popup. |
-| `crates/hook` | A CLI `chris` (`hook` + `install`). |
-| `crates/adapters` | Tradução do formato do Copilot ⇄ formato interno. |
-| `crates/transport-ipc` | Comunicação entre o `chris` e o `companiond`. |
-| `crates/core` | O "cérebro" (regras), portável até pra ESP32. |
+**Windows:** double-click `scripts/connect.bat`, paste the path of the project
+where you use the agent, and press Enter.
+
+**Linux/macOS:** `./scripts/connect.sh /path/to/your/project`
+
+This wires up **both Copilot CLI and Claude Code** (each in its own config file;
+nothing is overwritten). Then just use the agent normally — when it wants to run
+a command, the blob turns **orange** and the popup opens. Click **Allow** or
+**Deny** (or `Esc` = deny).
+
+> To wire only one: run `chris install --agent claude` (or `--agent copilot`)
+> inside the project folder.
+
+---
+
+## Pull Request notifications
+
+CHRIS also watches for **PRs that request your review**: the blob turns **blue**
+and a popup shows the PR with **Open** (in the browser) and **Approve** (submits
+an approving review) buttons.
+
+To enable it, CHRIS needs a GitHub token — pick one:
+
+- have the **GitHub CLI** logged in (`gh auth login`) — CHRIS picks the token up
+  automatically; **or**
+- set the `GITHUB_TOKEN` env var (scope `repo`) before launching.
+
+Without a token, PR notifications are simply off (everything else still works).
+
+---
+
+## Customizing the blob (sprite)
+
+Very easy, and **no Rust required** — the blob is just SVG + CSS:
+
+- `companiond/ui/index.html` — the shape (an SVG: body, eyes, mouths).
+- `companiond/ui/style.css` — colors and animations per state.
+
+The look is driven by a single attribute, `data-state`, with four values:
+`idle`, `alert`, `approved`, `denied` (plus `pr`). To change the sprite, swap
+the SVG (or drop in a PNG/GIF/Lottie) and keep those state hooks — the daemon
+just calls `setBlobState(state, count)` in `companiond/ui/blob.js`. You can
+preview any change instantly by opening `index.html` in a browser.
+
+---
+
+## Verify (for developers)
+
+```bash
+cargo test     # logic crates: core + transport + adapters + hook + github
+```
+
+The GUI app builds on any desktop machine (and in CI):
+
+```bash
+cargo run -p companiond
+```
+
+## Project layout
+
+| Path | What it is |
+|------|------------|
+| `scripts/` | `setup` / `run` / `connect` for Windows & Unix |
+| `companiond/` | The app: blob window, tray and popups (Tauri) |
+| `crates/hook/` | The `chris` CLI (`hook` + `install`) |
+| `crates/adapters/` | Translates each agent's payload ⇄ internal types |
+| `crates/transport-ipc/` | IPC between `chris` and `companiond` |
+| `crates/github/` | Pull Request polling & approve |
+| `crates/core/` | The portable `no_std` "brain" (also compiles for ESP32) |
+| `.github/workflows/` | CI (test + build) and Release (Windows installer) |
 
 ## Status
 
-✅ Blob + bandeja, popup de aprovação, hooks do **Copilot CLI e do Claude
-Code**, instalador automático e **notificações de Pull Request** (abrir/aprovar).
-Próximo (fase 2): adapter do Codex, "aprovar e lembrar" e o buddy físico em ESP32.
+✅ Blob + tray, approval popup, **Copilot CLI and Claude Code** hooks, automatic
+installer, **Pull Request notifications**, and automated Windows builds.
+Next (phase 2): Codex adapter, "approve & remember", and a physical ESP32 buddy.

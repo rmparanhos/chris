@@ -5,7 +5,7 @@
 #  Uso:  ./setup.sh
 # =====================================================================
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."   # raiz do projeto
 
 echo ""
 echo "===== Instalacao do CHRIS ====="

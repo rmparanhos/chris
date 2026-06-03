@@ -48,6 +48,7 @@ if (-not (Have cargo)) {
 }
 
 # ---- 4. Compila o CHRIS ----
+Set-Location (Split-Path $PSScriptRoot -Parent)   # vai para a raiz do projeto
 Write-Host ""
 Write-Host "-> Compilando o CHRIS (a primeira vez demora alguns minutos)..." -ForegroundColor Yellow
 cargo build --release -p chris-cli
