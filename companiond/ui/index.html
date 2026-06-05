@@ -63,18 +63,12 @@
 
           <text class="emote" x="80" y="28">!</text>
         </svg>
-
-        <!-- ===== Image-based character (PNG, one file per state) =====
-             Used by photo sprites like "dog". If the files aren't present yet,
-             blob.js falls back to the blob SVG above. -->
-        <img id="sprite-photo" class="sprite" alt="" />
       </div>
 
       <!-- character picker (appears on hover) -->
       <div id="picker" data-tauri-drag-region="false">
         <button type="button" data-sprite="blob" class="active" title="Blob">🫧</button>
         <button type="button" data-sprite="cat" title="Cat">🐱</button>
-        <button type="button" data-sprite="dog" title="Dog">🐶</button>
       </div>
     </div>
 
