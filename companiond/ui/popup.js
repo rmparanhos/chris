@@ -10,6 +10,7 @@ const els = {
   cwd: document.getElementById("cwd"),
   allow: document.getElementById("allow"),
   deny: document.getElementById("deny"),
+  defer: document.getElementById("defer"),
 };
 
 let currentId = null;
@@ -22,6 +23,7 @@ function render(req) {
   els.tool.textContent = req.tool || "";
   els.summary.textContent = req.summary || "";
   els.cwd.textContent = req.cwd || "";
+  els.summary.scrollTop = 0; // always show the start of the context
 }
 
 // Tauri integration (only present when running inside the app).
@@ -35,11 +37,22 @@ function send(allow) {
   currentId = null;
 }
 
+// Step aside: let the agent's own prompt handle it in the terminal.
+function sendDefer() {
+  if (currentId === null) return;
+  if (tauri) {
+    tauri.core.invoke("defer", { id: currentId });
+  }
+  currentId = null;
+}
+
 els.allow.addEventListener("click", () => send(true));
 els.deny.addEventListener("click", () => send(false));
-// Esc = deny (safe default)
+els.defer.addEventListener("click", () => sendDefer());
+// keyboard: Enter = allow, Esc = deny
 window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") send(false);
+  if (e.key === "Enter") send(true);
+  else if (e.key === "Escape") send(false);
 });
 
 if (tauri) {

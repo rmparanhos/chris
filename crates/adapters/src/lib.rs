@@ -59,20 +59,51 @@ fn parse_pretooluse(payload: &str, id: ReqId, agent: Agent) -> Result<ApprovalRe
     })
 }
 
-/// Readable summary of the action. Never returns "null": falls back to friendly text.
-fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
-    // common case: a shell command
-    if let Some(cmd) = input.get("command").and_then(|v| v.as_str()) {
-        if !cmd.is_empty() {
-            return cmd.to_string();
-        }
+/// How many characters of a long field (file content, etc.) we keep in the
+/// summary. Enough to give context without flooding the popup.
+const PREVIEW_LIMIT: usize = 1500;
+
+/// Truncates long text, adding an ellipsis note so it's clear it was cut.
+fn preview(s: &str) -> String {
+    if s.chars().count() <= PREVIEW_LIMIT {
+        return s.to_string();
     }
-    // some tools use other text fields
-    for key in ["content", "path", "file_path", "url", "query"] {
-        if let Some(v) = input.get(key).and_then(|v| v.as_str()) {
-            if !v.is_empty() {
-                return format!("{key}: {v}");
+    let cut: String = s.chars().take(PREVIEW_LIMIT).collect();
+    format!("{cut}\n… (truncated)")
+}
+
+/// Readable summary of the action, with as much context as is useful to decide.
+/// Never returns "null": falls back to friendly text.
+fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
+    let get = |k: &str| input.get(k).and_then(|v| v.as_str()).filter(|s| !s.is_empty());
+
+    // 1) shell command (run a command)
+    if let Some(cmd) = get("command") {
+        return cmd.to_string();
+    }
+
+    // 2) file write/edit: show the path AND a preview of what will be written.
+    //    Covers Write/Edit across agents (content / new_string / contents, and
+    //    file_path / path).
+    let path = get("file_path").or_else(|| get("path"));
+    let body = get("content").or_else(|| get("new_string")).or_else(|| get("contents"));
+    if let Some(p) = path {
+        let mut out = format!("file: {p}");
+        if let Some(old) = get("old_string") {
+            out.push_str(&format!("\n\n— replacing —\n{}", preview(old)));
+            if let Some(b) = body {
+                out.push_str(&format!("\n\n— with —\n{}", preview(b)));
             }
+        } else if let Some(b) = body {
+            out.push_str(&format!("\n\n{}", preview(b)));
+        }
+        return out;
+    }
+
+    // 3) other common single-value fields
+    for key in ["url", "query", "pattern", "content"] {
+        if let Some(v) = get(key) {
+            return format!("{key}: {v}");
         }
     }
     if let Some(s) = input.as_str() {
@@ -80,21 +111,18 @@ fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
             return s.to_string();
         }
     }
-    // no useful details: use the tool name instead of "null"
-    if input.is_null()
-        || input
-            .as_object()
-            .map(|o| o.is_empty())
-            .unwrap_or(false)
-    {
+
+    // 4) no useful details: use the tool name instead of "null"
+    if input.is_null() || input.as_object().map(|o| o.is_empty()).unwrap_or(false) {
         return if tool_name.is_empty() {
             "(sem detalhes)".to_string()
         } else {
             format!("{tool_name} (sem detalhes)")
         };
     }
-    // object with unknown fields: show it compact (but it will never be "null")
-    input.to_string()
+
+    // 5) object with unknown fields: show it pretty (never "null")
+    serde_json::to_string_pretty(input).unwrap_or_else(|_| input.to_string())
 }
 
 // ===========================================================================
@@ -195,6 +223,17 @@ mod tests {
         let req = parse_claude(SHELL, ReqId(1)).unwrap();
         assert_eq!(req.agent, Agent::Claude);
         assert_eq!(req.summary, "rm -rf build/");
+    }
+
+    #[test]
+    fn summary_write_shows_path_and_content() {
+        let payload = r#"{
+            "tool_name": "Write",
+            "tool_input": { "file_path": "src/main.rs", "content": "fn main() {}" }
+        }"#;
+        let req = parse_claude(payload, ReqId(1)).unwrap();
+        assert!(req.summary.starts_with("file: src/main.rs"));
+        assert!(req.summary.contains("fn main() {}"));
     }
 
     #[test]

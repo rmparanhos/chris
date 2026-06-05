@@ -168,6 +168,32 @@ body {
   transform-origin: center;
 }
 
+/* PR counts pill above the companion (your open PRs · reviews requested) */
+#prcount {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #e8ecf3;
+  font: 11px system-ui, sans-serif;
+  white-space: nowrap;
+  pointer-events: none; /* never blocks dragging the companion */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+#prcount b {
+  color: #fff;
+  font-weight: 700;
+}
+#prcount .dot {
+  opacity: 0.45;
+}
+
 /* queue counter (e.g. "+2") */
 #badge {
   position: absolute;

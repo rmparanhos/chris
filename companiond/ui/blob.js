@@ -79,12 +79,36 @@ document.querySelectorAll("#picker button").forEach((b) => {
   });
 });
 
+// ---------- PR notification counts (above the companion) ----------
+const prcount = document.getElementById("prcount");
+function setPrCounts(open, review) {
+  document.getElementById("pr-open").textContent = open;
+  document.getElementById("pr-review").textContent = review;
+  // show the pill only when there is something worth showing
+  prcount.hidden = open + review <= 0;
+}
+
 // Inside the app: the daemon drives the blob via the "blob-state" event.
 const tauri = window.__TAURI__;
 if (tauri) {
   tauri.event.listen("blob-state", (e) => {
     const { state, count } = e.payload || {};
     setBlobState(state, count || 0);
+  });
+
+  tauri.event.listen("pr-counts", (e) => {
+    const { open, review } = e.payload || {};
+    setPrCounts(open || 0, review || 0);
+  });
+
+  // Drag the whole companion window by grabbing the character anywhere (not
+  // just the empty edges). The picker buttons are excluded so they stay
+  // clickable. Uses the OS-level drag for smoothness.
+  const appWin = tauri.window && tauri.window.getCurrentWindow && tauri.window.getCurrentWindow();
+  stage.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return; // left button only
+    if (e.target.closest("#picker")) return; // let the picker work
+    if (appWin) appWin.startDragging().catch(() => {});
   });
 } else {
   // --- browser demo mode (no Tauri) ---
