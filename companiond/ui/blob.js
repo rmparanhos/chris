@@ -68,3 +68,33 @@ if (tauri) {
     setBlobState(STATES[i], fakeCount);
   });
 }
+
+// ---------- arrasto do blob ----------
+let isDragging = false;
+
+blob.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  blob.style.cursor = "grabbing";
+  e.preventDefault();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isDragging) return;
+  
+  if (tauri) {
+    // Usa movementX/Y que são o delta do mouse (mais robusto)
+    tauri.core.invoke("move_window_by", {
+      dx: e.movementX,
+      dy: e.movementY,
+    }).catch(err => {
+      console.error("Move error:", err);
+    });
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  if (!isDragging) return;
+  isDragging = false;
+  blob.style.cursor = "move";
+});
+

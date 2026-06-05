@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Permissões base das janelas do CHRIS (blob, popup e pr).","local":true,"windows":["blob","popup","pr"],"permissions":["core:default","core:event:default","core:window:allow-start-dragging"]}}

@@ -70,6 +70,26 @@ fn hide_pr(app: AppHandle) {
     let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"idle","count":0}));
 }
 
+/// Move a janela do blob para uma nova posição (chamado quando o blob é arrastado).
+#[tauri::command]
+fn move_window(app: AppHandle, x: i32, y: i32) {
+    if let Some(w) = app.get_webview_window("blob") {
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+}
+
+/// Move a janela do blob por um delta (dx, dy) — menos propenso a resetas.
+#[tauri::command]
+fn move_window_by(app: AppHandle, dx: i32, dy: i32) {
+    if let Some(w) = app.get_webview_window("blob") {
+        if let Ok(pos) = w.outer_position() {
+            let new_x = pos.x + dx;
+            let new_y = pos.y + dy;
+            let _ = w.set_position(PhysicalPosition::new(new_x, new_y));
+        }
+    }
+}
+
 /// Cola a janela `label` (popup/pr) junto ao blob: por padrão logo acima dele,
 /// centralizada na horizontal. Se não couber em cima, vai para baixo.
 /// É o que faz a notificação "andar junto" com o blob.
@@ -94,7 +114,7 @@ fn position_near_blob(app: &AppHandle, label: &str) {
 fn main() {
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr])
+        .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr, move_window, move_window_by])
         .setup(|app| {
             setup_tray(app.handle())?;
 
