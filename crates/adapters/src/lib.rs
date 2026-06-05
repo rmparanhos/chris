@@ -48,7 +48,10 @@ struct PreToolUse {
 fn parse_pretooluse(payload: &str, id: ReqId, agent: Agent) -> Result<ApprovalRequest, AdapterError> {
     let p: PreToolUse = serde_json::from_str(payload)?;
     let summary = summarize(&p.tool_name, &p.tool_input);
-    let risk = assess_risk(&summary);
+    // Assess risk from the actual command when there is one (a file's content
+    // shouldn't trip the shell heuristics); otherwise fall back to the summary.
+    let cmd = p.tool_input.get("command").and_then(|v| v.as_str()).unwrap_or("");
+    let risk = if cmd.is_empty() { assess_risk(&summary) } else { assess_risk(cmd) };
     Ok(ApprovalRequest {
         id,
         agent,
@@ -72,57 +75,91 @@ fn preview(s: &str) -> String {
     format!("{cut}\n… (truncated)")
 }
 
-/// Readable summary of the action, with as much context as is useful to decide.
+/// Friendly fallback text when there is nothing useful to show.
+fn no_details(tool_name: &str) -> String {
+    if tool_name.is_empty() {
+        "(sem detalhes)".to_string()
+    } else {
+        format!("{tool_name} (sem detalhes)")
+    }
+}
+
+/// Fields that are typically long/multi-line — rendered as a labelled block on
+/// their own lines instead of inline.
+fn is_block_key(k: &str) -> bool {
+    matches!(
+        k,
+        "command" | "content" | "contents" | "new_string" | "old_string" | "body" | "text" | "diff"
+    )
+}
+
+/// Renders one `key: value` field. Long/multi-line values go on their own lines.
+fn field_line(key: &str, v: &serde_json::Value) -> Option<String> {
+    if v.is_null() {
+        return None;
+    }
+    let text = match v.as_str() {
+        Some(s) => s.to_string(),
+        None => v.to_string(),
+    };
+    if text.is_empty() {
+        return None;
+    }
+    Some(if is_block_key(key) || text.contains('\n') || text.len() > 80 {
+        format!("{key}:\n{}", preview(&text))
+    } else {
+        format!("{key}: {text}")
+    })
+}
+
+/// Readable summary of the action. Renders EVERY field of the tool input so the
+/// popup carries the same information the CLI would show — nothing hidden.
 /// Never returns "null": falls back to friendly text.
 fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
-    let get = |k: &str| input.get(k).and_then(|v| v.as_str()).filter(|s| !s.is_empty());
-
-    // 1) shell command (run a command)
-    if let Some(cmd) = get("command") {
-        return cmd.to_string();
-    }
-
-    // 2) file write/edit: show the path AND a preview of what will be written.
-    //    Covers Write/Edit across agents (content / new_string / contents, and
-    //    file_path / path).
-    let path = get("file_path").or_else(|| get("path"));
-    let body = get("content").or_else(|| get("new_string")).or_else(|| get("contents"));
-    if let Some(p) = path {
-        let mut out = format!("file: {p}");
-        if let Some(old) = get("old_string") {
-            out.push_str(&format!("\n\n— replacing —\n{}", preview(old)));
-            if let Some(b) = body {
-                out.push_str(&format!("\n\n— with —\n{}", preview(b)));
-            }
-        } else if let Some(b) = body {
-            out.push_str(&format!("\n\n{}", preview(b)));
-        }
-        return out;
-    }
-
-    // 3) other common single-value fields
-    for key in ["url", "query", "pattern", "content"] {
-        if let Some(v) = get(key) {
-            return format!("{key}: {v}");
-        }
-    }
+    // a plain string input
     if let Some(s) = input.as_str() {
-        if !s.is_empty() {
-            return s.to_string();
+        return if s.is_empty() { no_details(tool_name) } else { preview(s) };
+    }
+
+    let obj = match input.as_object() {
+        Some(o) if !o.is_empty() => o,
+        _ => return no_details(tool_name),
+    };
+
+    // common shortcut: a lone shell command -> show it bare
+    if obj.len() == 1 {
+        if let Some(cmd) = obj.get("command").and_then(|v| v.as_str()) {
+            if !cmd.is_empty() {
+                return preview(cmd);
+            }
         }
     }
 
-    // 4) no useful details: use the tool name instead of "null"
-    if input.is_null() || input.as_object().map(|o| o.is_empty()).unwrap_or(false) {
-        return if tool_name.is_empty() {
-            "(sem detalhes)".to_string()
-        } else {
-            format!("{tool_name} (sem detalhes)")
-        };
+    // otherwise render every field; put the important ones first, then the rest
+    let mut lines: Vec<String> = Vec::new();
+    let mut done: Vec<&str> = Vec::new();
+    for key in ["command", "file_path", "path", "url", "old_string", "new_string"] {
+        if let Some(v) = obj.get(key) {
+            if let Some(line) = field_line(key, v) {
+                lines.push(line);
+            }
+            done.push(key);
+        }
+    }
+    for (key, v) in obj {
+        if done.contains(&key.as_str()) {
+            continue;
+        }
+        if let Some(line) = field_line(key, v) {
+            lines.push(line);
+        }
     }
 
-    // 5) object with unknown fields: show it pretty (never "null")
-    serde_json::to_string_pretty(input).unwrap_or_else(|_| input.to_string())
+    if lines.is_empty() {
+        no_details(tool_name)
+    } else {
+        lines.join("\n")
+    }
 }
 
 // ===========================================================================
@@ -232,8 +269,22 @@ mod tests {
             "tool_input": { "file_path": "src/main.rs", "content": "fn main() {}" }
         }"#;
         let req = parse_claude(payload, ReqId(1)).unwrap();
-        assert!(req.summary.starts_with("file: src/main.rs"));
+        assert!(req.summary.contains("src/main.rs"));
         assert!(req.summary.contains("fn main() {}"));
+    }
+
+    #[test]
+    fn summary_renders_all_fields() {
+        // every field present so the popup carries full context
+        let payload = r#"{
+            "tool_name": "Bash",
+            "tool_input": { "command": "git push", "description": "push to origin", "timeout": 5000 }
+        }"#;
+        let req = parse_copilot(payload, ReqId(1)).unwrap();
+        assert!(req.summary.contains("git push"));
+        assert!(req.summary.contains("description: push to origin"));
+        assert!(req.summary.contains("timeout: 5000"));
+        assert_eq!(req.risk, chris_core::Risk::Medium); // from the command, not the content
     }
 
     #[test]
