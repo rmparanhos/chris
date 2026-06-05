@@ -1,14 +1,14 @@
-// No Windows, em release, esconde a janela preta de console que abriria junto.
+// On Windows, in release, hide the black console window that would open with it.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-//! Daemon do CHRIS (Tauri).
+//! CHRIS daemon (Tauri).
 //!
-//! - Mostra o blob (janela transparente) e um ícone na bandeja.
-//! - Escuta o cano IPC. Quando um pedido de aprovação chega:
-//!     1. o blob vai para "alerta";
-//!     2. abre o popup com os detalhes;
-//!     3. espera o clique (Allow/Deny) ou o timeout (-> Deny);
-//!     4. responde a decisão de volta para o hook.
+//! - Shows the blob (a transparent window) and a tray icon.
+//! - Listens on the IPC pipe. When an approval request arrives:
+//!     1. the blob switches to "alert";
+//!     2. the popup opens with the details;
+//!     3. it waits for the click (Allow/Deny) or the timeout (-> Deny);
+//!     4. it sends the decision back to the hook.
 
 use std::collections::HashSet;
 use std::sync::mpsc::{self, Sender};
@@ -23,17 +23,17 @@ use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, State, WindowEvent,
 };
 
-/// Mesmo timeout do hook (deny se ninguém responder a tempo).
+/// Same timeout as the hook (deny if nobody answers in time).
 const TIMEOUT_SECS: u64 = 120;
 
-/// Estado compartilhado: o "canal" para entregar a decisão do pedido atual.
+/// Shared state: the "channel" used to deliver the decision for the current request.
 #[derive(Default)]
 struct AppState {
-    /// (id do pedido atual, remetente para acordar quem está esperando)
+    /// (id of the current request, sender that wakes whoever is waiting)
     current: Mutex<Option<(u32, Sender<Decision>)>>,
 }
 
-/// Comando chamado pelos botões do popup (via JS).
+/// Command invoked by the popup buttons (via JS).
 #[tauri::command]
 fn decide(state: State<AppState>, id: u32, allow: bool) {
     if let Some((cur_id, tx)) = state.current.lock().unwrap().as_ref() {
@@ -43,7 +43,7 @@ fn decide(state: State<AppState>, id: u32, allow: bool) {
     }
 }
 
-/// Abre uma URL no navegador padrão (chamado pelo botão "Abrir" do popup de PR).
+/// Opens a URL in the default browser (called by the PR popup's "Open" button).
 #[tauri::command]
 fn open_url(url: String) {
     #[cfg(target_os = "windows")]
@@ -54,14 +54,14 @@ fn open_url(url: String) {
     let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
 }
 
-/// Aprova um PR (botão "Aprovar" do popup de PR).
+/// Approves a PR (the PR popup's "Approve" button).
 #[tauri::command]
 fn approve_pr(owner: String, repo: String, number: u64) -> Result<(), String> {
-    let token = chris_github::discover_token().ok_or("sem token do GitHub")?;
+    let token = chris_github::discover_token().ok_or("no GitHub token")?;
     chris_github::approve_pr(&token, &owner, &repo, number).map_err(|e| format!("{e:?}"))
 }
 
-/// Fecha o popup de PR e volta o blob para idle (botões "Aprovar"/"Dispensar").
+/// Closes the PR popup and returns the blob to idle (the "Approve"/"Dismiss" buttons).
 #[tauri::command]
 fn hide_pr(app: AppHandle) {
     if let Some(w) = app.get_webview_window("pr") {
@@ -70,29 +70,9 @@ fn hide_pr(app: AppHandle) {
     let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"idle","count":0}));
 }
 
-/// Move a janela do blob para uma nova posição (chamado quando o blob é arrastado).
-#[tauri::command]
-fn move_window(app: AppHandle, x: i32, y: i32) {
-    if let Some(w) = app.get_webview_window("blob") {
-        let _ = w.set_position(PhysicalPosition::new(x, y));
-    }
-}
-
-/// Move a janela do blob por um delta (dx, dy) — menos propenso a resetas.
-#[tauri::command]
-fn move_window_by(app: AppHandle, dx: i32, dy: i32) {
-    if let Some(w) = app.get_webview_window("blob") {
-        if let Ok(pos) = w.outer_position() {
-            let new_x = pos.x + dx;
-            let new_y = pos.y + dy;
-            let _ = w.set_position(PhysicalPosition::new(new_x, new_y));
-        }
-    }
-}
-
-/// Cola a janela `label` (popup/pr) junto ao blob: por padrão logo acima dele,
-/// centralizada na horizontal. Se não couber em cima, vai para baixo.
-/// É o que faz a notificação "andar junto" com o blob.
+/// Sticks the `label` window (popup/pr) next to the blob: by default just above it,
+/// horizontally centered. If it doesn't fit above, it goes below.
+/// This is what makes the notification "travel together" with the blob.
 fn position_near_blob(app: &AppHandle, label: &str) {
     let (Some(blob), Some(win)) = (app.get_webview_window("blob"), app.get_webview_window(label))
     else {
@@ -103,26 +83,38 @@ fn position_near_blob(app: &AppHandle, label: &str) {
     {
         let gap: i32 = 10;
         let x = bpos.x + (bsize.width as i32 - wsize.width as i32) / 2;
-        let mut y = bpos.y - wsize.height as i32 - gap; // acima do blob
+        let mut y = bpos.y - wsize.height as i32 - gap; // above the blob
         if y < 0 {
-            y = bpos.y + bsize.height as i32 + gap; // não cabe em cima -> embaixo
+            y = bpos.y + bsize.height as i32 + gap; // doesn't fit above -> go below
         }
         let _ = win.set_position(PhysicalPosition::new(x, y));
     }
 }
 
 fn main() {
+    // Single-instance guard: if a daemon is already listening on the IPC pipe,
+    // exit quietly instead of stacking up processes. A stale, hung instance
+    // keeps the pipe open, which makes the next launch fail with
+    // "couldn't open the IPC pipe" — so we refuse to start a duplicate.
+    if transport::connect().is_ok() {
+        eprintln!("CHRIS is already running — exiting this instance.");
+        return;
+    }
+
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr, move_window, move_window_by])
+        .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr])
         .setup(|app| {
             setup_tray(app.handle())?;
 
-            // quando o blob é arrastado, as notificações visíveis o acompanham
+            // The blob is dragged with the native `data-tauri-drag-region` (smooth,
+            // OS-level). While it moves, any visible notification follows it; and if
+            // the window is closed (e.g. Alt+F4) we shut the whole app down so no
+            // background process is left hanging.
             if let Some(blob) = app.get_webview_window("blob") {
                 let h = app.handle().clone();
-                blob.on_window_event(move |event| {
-                    if matches!(event, WindowEvent::Moved(_)) {
+                blob.on_window_event(move |event| match event {
+                    WindowEvent::Moved(_) => {
                         for label in ["popup", "pr"] {
                             if let Some(w) = h.get_webview_window(label) {
                                 if w.is_visible().unwrap_or(false) {
@@ -131,30 +123,32 @@ fn main() {
                             }
                         }
                     }
+                    WindowEvent::CloseRequested { .. } => std::process::exit(0),
+                    _ => {}
                 });
             }
 
-            // sobe o servidor IPC (aprovações do agente) numa thread de fundo
+            // start the IPC server (agent approvals) on a background thread
             let handle = app.handle().clone();
             std::thread::spawn(move || ipc_loop(handle));
 
-            // sobe o polling de Pull Requests numa outra thread
+            // start Pull Request polling on another thread
             let handle = app.handle().clone();
             std::thread::spawn(move || pr_loop(handle));
 
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("erro ao iniciar o CHRIS");
+        .expect("failed to start CHRIS");
 }
 
-/// Laço de notificações de PR: a cada minuto procura PRs que pedem sua revisão
-/// e avisa sobre os novos. Sem token do GitHub, fica desativado.
+/// PR notification loop: every minute it looks for PRs that request your review
+/// and warns about the new ones. Without a GitHub token it stays disabled.
 fn pr_loop(app: AppHandle) {
     let token = match chris_github::discover_token() {
         Some(t) => t,
         None => {
-            eprintln!("CHRIS: sem token do GitHub — notificações de PR desativadas.");
+            eprintln!("CHRIS: no GitHub token — PR notifications disabled.");
             return;
         }
     };
@@ -164,13 +158,13 @@ fn pr_loop(app: AppHandle) {
 
     loop {
         if let Ok(prs) = chris_github::fetch_review_requests(&token) {
-            let novos = chris_github::only_new(&seen, &prs);
+            let fresh = chris_github::only_new(&seen, &prs);
             for p in &prs {
                 seen.insert(p.id);
             }
-            // na primeira passada só registra (não avisa dos que já existiam)
+            // on the first pass only record (don't warn about pre-existing ones)
             if !first_pass {
-                for p in novos {
+                for p in fresh {
                     notify_pr(&app, &p);
                     std::thread::sleep(Duration::from_secs(8));
                 }
@@ -181,7 +175,7 @@ fn pr_loop(app: AppHandle) {
     }
 }
 
-/// Faz o blob reagir a um PR e abre o popup de PR com os detalhes.
+/// Makes the blob react to a PR and opens the PR popup with the details.
 fn notify_pr(app: &AppHandle, pr: &chris_github::PrItem) {
     let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"pr","count":0}));
     let _ = app.emit_to(
@@ -196,29 +190,31 @@ fn notify_pr(app: &AppHandle, pr: &chris_github::PrItem) {
             "url": pr.url,
         }),
     );
-    // posiciona junto ao blob e mostra SEM roubar o foco
+    // place it next to the blob and show it WITHOUT stealing focus
     position_near_blob(app, "pr");
     if let Some(win) = app.get_webview_window("pr") {
         let _ = win.show();
     }
 }
 
-/// Monta o ícone e o menu da bandeja.
+/// Builds the tray icon and its menu.
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    let mostrar = MenuItem::with_id(app, "toggle", "Mostrar/ocultar blob", true, None::<&str>)?;
-    let sair = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&mostrar, &sair])?;
+    let toggle = MenuItem::with_id(app, "toggle", "Show/hide companion", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&toggle, &quit])?;
 
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .tooltip("CHRIS — idle")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "quit" => app.exit(0),
+            // Hard exit: bypasses Tauri's graceful shutdown (which can hang while
+            // background threads are blocked on IPC accept) and releases the pipe.
+            "quit" => std::process::exit(0),
             "toggle" => {
                 if let Some(win) = app.get_webview_window("blob") {
-                    let visivel = win.is_visible().unwrap_or(false);
-                    let _ = if visivel { win.hide() } else { win.show() };
+                    let visible = win.is_visible().unwrap_or(false);
+                    let _ = if visible { win.hide() } else { win.show() };
                 }
             }
             _ => {}
@@ -227,25 +223,25 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Laço do servidor IPC: aceita conexões e trata um pedido por vez (fila).
+/// IPC server loop: accepts connections and handles one request at a time (a queue).
 fn ipc_loop(app: AppHandle) {
     let listener = match transport::listen() {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("CHRIS: não consegui abrir o cano IPC: {e}");
+            eprintln!("CHRIS: couldn't open the IPC pipe: {e}");
             return;
         }
     };
     loop {
         match transport::accept(&listener) {
             Ok(mut conn) => {
-                // lê o pedido
+                // read the request
                 let req = match transport::read_msg(&mut conn) {
                     Ok(Msg::Request(r)) => r,
-                    _ => continue, // mensagem inesperada: ignora
+                    _ => continue, // unexpected message: ignore
                 };
                 let decision = handle_request(&app, &req);
-                // responde de volta para o hook (ignora se o hook já saiu)
+                // send the decision back to the hook (ignore if the hook already left)
                 let _ = transport::write_msg(
                     &mut conn,
                     &Msg::Decision(DecisionMsg {
@@ -260,12 +256,12 @@ fn ipc_loop(app: AppHandle) {
     }
 }
 
-/// Mostra o pedido (blob + popup) e espera a decisão (ou timeout = Deny).
+/// Shows the request (blob + popup) and waits for the decision (or timeout = Deny).
 fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decision {
-    // blob -> alerta
+    // blob -> alert
     let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":"alert","count":1}));
 
-    // popup -> mostra com os detalhes
+    // popup -> show with the details
     let _ = app.emit_to(
         "popup",
         "approval",
@@ -278,13 +274,13 @@ fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decisio
             "risk": format!("{:?}", req.risk).to_lowercase(),
         }),
     );
-    // posiciona junto ao blob e mostra SEM roubar o foco
+    // place it next to the blob and show it WITHOUT stealing focus
     position_near_blob(app, "popup");
     if let Some(win) = app.get_webview_window("popup") {
         let _ = win.show();
     }
 
-    // registra o canal de decisão e espera
+    // register the decision channel and wait
     let (tx, rx) = mpsc::channel();
     {
         let state = app.state::<AppState>();
@@ -298,7 +294,7 @@ fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decisio
         *state.current.lock().unwrap() = None;
     }
 
-    // feedback visual e fecha o popup
+    // visual feedback, then close the popup
     let visual = match decision {
         Decision::Allow => "approved",
         _ => "denied",

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,35 +7,35 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- data-state controla a aparência: idle | alert | approved | denied | pr
-         data-sprite escolhe o personagem: blob | cat
-         data-tauri-drag-region: permite arrastar o companion pela tela -->
+    <!-- data-state controls the appearance: idle | alert | approved | denied | pr
+         data-sprite picks the character: blob | cat
+         data-tauri-drag-region: lets you drag the companion around the screen -->
     <div id="stage" data-state="idle" data-sprite="blob" data-tauri-drag-region>
       <div id="badge" hidden>+0</div>
 
-      <div id="blob" title="Clique para pré-visualizar os estados">
+      <div id="blob" title="Click to preview the states">
         <!-- ===== Sprite 1: Blob ===== -->
         <svg id="sprite-blob" class="sprite" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <ellipse class="body" cx="50" cy="56" rx="36" ry="33" />
 
-          <!-- olhos -->
+          <!-- eyes -->
           <circle class="eye" cx="40" cy="50" r="4.5" />
           <circle class="eye" cx="60" cy="50" r="4.5" />
 
-          <!-- bocas: só uma fica visível por estado (via CSS) -->
+          <!-- mouths: only one is visible per state (via CSS) -->
           <path class="mouth neutral" d="M42 66 H58" />
           <path class="mouth smile" d="M41 64 Q50 74 59 64" />
           <path class="mouth frown" d="M41 70 Q50 62 59 70" />
           <circle class="mouth o" cx="50" cy="67" r="4" />
 
-          <!-- emote que aparece no alerta -->
+          <!-- emote shown on alert -->
           <text class="emote" x="78" y="26">!</text>
         </svg>
 
-        <!-- ===== Sprite 2: Gato ===== (mesmas classes .body/.eye/.mouth/.emote,
-             então toda a lógica de estados/animações funciona sem mudar nada) -->
+        <!-- ===== Sprite 2: Cat ===== (same .body/.eye/.mouth/.emote classes,
+             so all of the state/animation logic works without any changes) -->
         <svg id="sprite-cat" class="sprite" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <!-- orelhas (acompanham a cor do estado, via classe .ear) -->
+          <!-- ears (follow the state color, via the .ear class) -->
           <path class="ear" d="M30 34 L40 12 L52 32 Z" />
           <path class="ear" d="M48 32 L60 12 L70 34 Z" />
           <path class="ear-inner" d="M36 31 L41 19 L47 30 Z" />
@@ -46,7 +46,7 @@
           <circle class="eye" cx="40" cy="50" r="4.5" />
           <circle class="eye" cx="60" cy="50" r="4.5" />
 
-          <!-- nariz + bigodes -->
+          <!-- nose + whiskers -->
           <path class="cat-nose" d="M47 60 L53 60 L50 64 Z" />
           <g class="whiskers">
             <path d="M53 61 H73" />
@@ -55,7 +55,7 @@
             <path d="M47 63 L27 66" />
           </g>
 
-          <!-- bocas (mesmas classes do blob) -->
+          <!-- mouths (same classes as the blob) -->
           <path class="mouth neutral" d="M42 68 H58" />
           <path class="mouth smile" d="M41 66 Q50 75 59 66" />
           <path class="mouth frown" d="M41 72 Q50 64 59 72" />
@@ -65,10 +65,10 @@
         </svg>
       </div>
 
-      <!-- seletor de personagem (aparece ao passar o mouse) -->
+      <!-- character picker (appears on hover) -->
       <div id="picker" data-tauri-drag-region="false">
         <button type="button" data-sprite="blob" class="active" title="Blob">🫧</button>
-        <button type="button" data-sprite="cat" title="Gato">🐱</button>
+        <button type="button" data-sprite="cat" title="Cat">🐱</button>
       </div>
     </div>
 

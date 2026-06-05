@@ -1,5 +1,5 @@
-// Popup de aprovação. Recebe o pedido do daemon (evento "approval"),
-// preenche a tela e devolve a decisão pelo comando `decide`.
+// Approval popup. Receives the request from the daemon (the "approval" event),
+// fills in the screen and sends the decision back via the `decide` command.
 
 const card = document.getElementById("card");
 const els = {
@@ -24,7 +24,7 @@ function render(req) {
   els.cwd.textContent = req.cwd || "";
 }
 
-// Integração com o Tauri (existe só quando roda dentro do app).
+// Tauri integration (only present when running inside the app).
 const tauri = window.__TAURI__;
 
 function send(allow) {
@@ -37,7 +37,7 @@ function send(allow) {
 
 els.allow.addEventListener("click", () => send(true));
 els.deny.addEventListener("click", () => send(false));
-// Esc = negar (seguro)
+// Esc = deny (safe default)
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") send(false);
 });
@@ -45,13 +45,13 @@ window.addEventListener("keydown", (e) => {
 if (tauri) {
   tauri.event.listen("approval", (e) => render(e.payload));
 } else {
-  // prévia no navegador (sem Tauri): mostra um exemplo
+  // browser preview (no Tauri): show an example
   render({
     id: 1,
     agent: "Copilot",
     tool: "shell",
     summary: "rm -rf build/",
-    cwd: "/home/dev/projeto",
+    cwd: "/home/dev/project",
     risk: "high",
   });
 }

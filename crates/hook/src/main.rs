@@ -26,7 +26,7 @@ fn main() {
         Some("install") => run_install(&args),
         Some("--help") | Some("-h") | None => print_help(),
         Some(other) => {
-            eprintln!("subcomando desconhecido: {other}");
+            eprintln!("unknown subcommand: {other}");
             print_help();
             std::process::exit(2);
         }
@@ -36,9 +36,9 @@ fn main() {
 fn print_help() {
     eprintln!(
         "CHRIS — Coding-agent Hook Review Interactive Sidekick\n\n\
-         Uso:\n  \
-         chris hook    --agent <copilot|claude>   (chamado pelo agente no PreToolUse)\n  \
-         chris install --agent <copilot|claude>   (instala a config de hook do agente)\n"
+         Usage:\n  \
+         chris hook    --agent <copilot|claude>   (called by the agent on PreToolUse)\n  \
+         chris install --agent <copilot|claude>   (installs the agent's hook config)\n"
     );
 }
 
@@ -97,8 +97,8 @@ fn run_hook(args: &[String]) {
 
     // 5) responde no formato do agente
     let reason = match decision {
-        Decision::Allow => "aprovado pelo usuário no CHRIS",
-        Decision::Deny => "negado/sem resposta no CHRIS",
+        Decision::Allow => "approved by the user in CHRIS",
+        Decision::Deny => "denied / no response in CHRIS",
         Decision::Defer => "",
     };
     let resp = if agent == "claude" {
@@ -165,7 +165,7 @@ fn run_install(args: &[String]) {
         "copilot" => install_copilot(&format!("{exe_q} hook --agent copilot")),
         "claude" => install_claude(&format!("{exe_q} hook --agent claude")),
         _ => {
-            eprintln!("install: use  --agent copilot  ou  --agent claude.");
+            eprintln!("install: use  --agent copilot  or  --agent claude.");
             std::process::exit(2);
         }
     }
@@ -184,7 +184,7 @@ fn install_copilot(invoke: &str) {
                     "bash": invoke,
                     "powershell": invoke,
                     "timeoutSec": 600,
-                    "comment": "CHRIS — aprovação via companion"
+                    "comment": "CHRIS — approval via the companion"
                 }
             ]
         }
@@ -192,24 +192,24 @@ fn install_copilot(invoke: &str) {
 
     let dir = std::path::Path::new(".github").join("hooks");
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        eprintln!("install: não consegui criar {}: {e}", dir.display());
+        eprintln!("install: couldn't create {}: {e}", dir.display());
         std::process::exit(1);
     }
     let path = dir.join("chris.json");
     if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&config).unwrap()) {
-        eprintln!("install: não consegui escrever {}: {e}", path.display());
+        eprintln!("install: couldn't write {}: {e}", path.display());
         std::process::exit(1);
     }
-    println!("Hook do Copilot instalado em {}", path.display());
-    println!("Comando do hook: {invoke}");
-    println!("Lembre: o daemon (companiond) precisa estar rodando para o blob reagir.");
+    println!("Copilot hook installed at {}", path.display());
+    println!("Hook command: {invoke}");
+    println!("Reminder: the daemon (companiond) must be running for the blob to react.");
 }
 
 /// Claude Code: MESCLA o hook em `.claude/settings.json` (não apaga o resto).
 fn install_claude(invoke: &str) {
     let dir = std::path::Path::new(".claude");
     if let Err(e) = std::fs::create_dir_all(dir) {
-        eprintln!("install: não consegui criar {}: {e}", dir.display());
+        eprintln!("install: couldn't create {}: {e}", dir.display());
         std::process::exit(1);
     }
     let path = dir.join("settings.json");
@@ -258,10 +258,10 @@ fn install_claude(invoke: &str) {
     }
 
     if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&root).unwrap()) {
-        eprintln!("install: não consegui escrever {}: {e}", path.display());
+        eprintln!("install: couldn't write {}: {e}", path.display());
         std::process::exit(1);
     }
-    println!("Hook do Claude Code instalado/atualizado em {}", path.display());
-    println!("Comando do hook: {invoke}");
-    println!("Lembre: o daemon (companiond) precisa estar rodando para o blob reagir.");
+    println!("Claude Code hook installed/updated at {}", path.display());
+    println!("Hook command: {invoke}");
+    println!("Reminder: the daemon (companiond) must be running for the blob to react.");
 }

@@ -1,7 +1,10 @@
-// Controle do blob. Em M1 é tudo no lado do navegador (sem chamar APIs do
-// Tauri ainda) — assim você pode abrir este arquivo direto no navegador e ver
-// o blob funcionando. A partir do M3 o daemon (Rust) é que vai dirigir o
-// estado, conforme as aprovações chegarem.
+// Companion controller. The visuals run entirely on the browser side, so you
+// can open this file directly in a browser and watch the blob work. Inside the
+// app the daemon (Rust) drives the state as approvals arrive.
+//
+// Dragging is handled natively by `data-tauri-drag-region` on #stage (set in
+// index.html), so there is no manual drag code here — the OS moves the window
+// smoothly and the daemon repositions the notifications to follow it.
 
 const stage = document.getElementById("stage");
 const badge = document.getElementById("badge");
@@ -9,9 +12,9 @@ const blob = document.getElementById("blob");
 
 const STATES = ["idle", "alert", "approved", "denied", "pr"];
 
-/** Muda o estado visual do blob. Será chamada pelo backend no futuro.
- *  @param {string} state  idle | alert | approved | denied
- *  @param {number} count  quantos pedidos esperam na fila (0 = esconde badge)
+/** Changes the companion's visual state. Driven by the backend at runtime.
+ *  @param {string} state  idle | alert | approved | denied | pr
+ *  @param {number} count  how many requests are queued (0 = hide the badge)
  */
 function setBlobState(state, count = 0) {
   if (!STATES.includes(state)) return;
@@ -24,10 +27,10 @@ function setBlobState(state, count = 0) {
   }
 }
 
-// expõe a função globalmente
+// expose the function globally
 window.setBlobState = setBlobState;
 
-// ---------- seletor de personagem (sprite) ----------
+// ---------- character (sprite) picker ----------
 const SPRITES = ["blob", "cat"];
 
 function setSprite(name) {
@@ -42,16 +45,16 @@ function setSprite(name) {
 }
 window.setSprite = setSprite;
 
-// restaura a última escolha e liga os botões
+// restore the last choice and wire up the buttons
 setSprite(localStorage.getItem("chris.sprite") || "blob");
 document.querySelectorAll("#picker button").forEach((b) => {
   b.addEventListener("click", (e) => {
-    e.stopPropagation(); // não dispara o ciclo de estados do blob
+    e.stopPropagation(); // don't trigger the blob's state cycle
     setSprite(b.dataset.sprite);
   });
 });
 
-// Dentro do app: o daemon dirige o blob via evento "blob-state".
+// Inside the app: the daemon drives the blob via the "blob-state" event.
 const tauri = window.__TAURI__;
 if (tauri) {
   tauri.event.listen("blob-state", (e) => {
@@ -59,8 +62,8 @@ if (tauri) {
     setBlobState(state, count || 0);
   });
 } else {
-  // --- modo demonstração no navegador (sem Tauri) ---
-  // Clicar no blob percorre os estados em sequência.
+  // --- browser demo mode (no Tauri) ---
+  // Clicking the blob cycles through the states in order.
   let i = 0;
   blob.addEventListener("click", () => {
     i = (i + 1) % STATES.length;
@@ -68,33 +71,3 @@ if (tauri) {
     setBlobState(STATES[i], fakeCount);
   });
 }
-
-// ---------- arrasto do blob ----------
-let isDragging = false;
-
-blob.addEventListener("mousedown", (e) => {
-  isDragging = true;
-  blob.style.cursor = "grabbing";
-  e.preventDefault();
-});
-
-document.addEventListener("mousemove", (e) => {
-  if (!isDragging) return;
-  
-  if (tauri) {
-    // Usa movementX/Y que são o delta do mouse (mais robusto)
-    tauri.core.invoke("move_window_by", {
-      dx: e.movementX,
-      dy: e.movementY,
-    }).catch(err => {
-      console.error("Move error:", err);
-    });
-  }
-});
-
-document.addEventListener("mouseup", () => {
-  if (!isDragging) return;
-  isDragging = false;
-  blob.style.cursor = "move";
-});
-

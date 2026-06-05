@@ -1,12 +1,12 @@
-/* Fundo 100% transparente: no Tauri a janela é transparente, então só o
-   blob aparece flutuando na tela. */
+/* Fully transparent background: in Tauri the window is transparent, so only the
+   blob appears floating on the screen. */
 html,
 body {
   margin: 0;
   height: 100%;
   background: transparent;
   overflow: hidden;
-  /* impede seleção de texto/arraste acidental */
+  /* prevent accidental text selection/drag */
   user-select: none;
   -webkit-user-select: none;
 }
@@ -24,12 +24,12 @@ body {
   height: 150px;
   position: relative;
   cursor: move;
-  /* bob (sobe e desce de leve) */
+  /* bob (gently moves up and down) */
   animation: bob 3.2s ease-in-out infinite;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));
 }
 
-/* os dois sprites ocupam o mesmo espaço; só o ativo aparece */
+/* both sprites occupy the same space; only the active one is shown */
 .sprite {
   position: absolute;
   inset: 0;
@@ -43,9 +43,9 @@ body {
   display: none;
 }
 
-/* detalhes do gato */
+/* cat details */
 .ear {
-  fill: #34cdd6; /* segue a cor do corpo no idle */
+  fill: #34cdd6; /* follows the body color when idle */
   transition: fill 0.3s ease;
 }
 .ear-inner {
@@ -61,7 +61,7 @@ body {
   stroke-linecap: round;
 }
 
-/* seletor de personagem */
+/* character picker */
 #picker {
   position: absolute;
   bottom: 4px;
@@ -90,13 +90,13 @@ body {
   outline: 2px solid #fff;
 }
 
-/* o corpo respira (escala) e muda de cor por estado */
+/* the body breathes (scales) and changes color per state */
 .body {
   transform-box: fill-box;
   transform-origin: center;
   animation: breathe 2.6s ease-in-out infinite;
   transition: fill 0.3s ease;
-  fill: #34cdd6; /* idle: ciano */
+  fill: #34cdd6; /* idle: cyan */
 }
 
 .eye {
@@ -111,7 +111,7 @@ body {
   stroke: #08343a;
   stroke-width: 3;
   stroke-linecap: round;
-  display: none; /* escondidas; o estado mostra a certa */
+  display: none; /* hidden; each state shows the right one */
 }
 .mouth.o {
   fill: #08343a;
@@ -126,7 +126,7 @@ body {
   transform-origin: center;
 }
 
-/* contador de fila (ex.: "+2") */
+/* queue counter (e.g. "+2") */
 #badge {
   position: absolute;
   top: 18px;
@@ -141,14 +141,14 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* ---------- estados ---------- */
+/* ---------- states ---------- */
 
-/* idle: boca neutra */
+/* idle: neutral mouth */
 [data-state="idle"] .mouth.neutral {
   display: block;
 }
 
-/* alert: laranja, treme, mostra "!" e boca de "o" */
+/* alert: orange, shivers, shows "!" and an "o" mouth */
 [data-state="alert"] .body {
   fill: #ff9f43;
   animation: wobble 0.5s ease-in-out infinite;
@@ -160,7 +160,7 @@ body {
   animation: pop 0.6s ease-in-out infinite alternate;
 }
 
-/* approved: verde, dá um pulinho, sorri */
+/* approved: green, little hop, smiles */
 [data-state="approved"] .body {
   fill: #2ecc71;
   animation: hop 0.6s ease;
@@ -169,7 +169,7 @@ body {
   display: block;
 }
 
-/* denied: coral, balança a cabeça (shake), boca pra baixo */
+/* denied: coral, shakes its head, frowns */
 [data-state="denied"] .body {
   fill: #ff6b6b;
   animation: shake 0.5s ease;
@@ -178,7 +178,7 @@ body {
   display: block;
 }
 
-/* pr: azul, dá um pulinho, sorri (chegou um Pull Request) */
+/* pr: blue, little hop, smiles (a Pull Request arrived) */
 [data-state="pr"] .body {
   fill: #539bf5;
   animation: hop 0.7s ease;
@@ -187,7 +187,7 @@ body {
   display: block;
 }
 
-/* orelhas do gato acompanham a cor do corpo em cada estado */
+/* the cat's ears follow the body color in each state */
 [data-state="alert"] .ear { fill: #ff9f43; }
 [data-state="approved"] .ear { fill: #2ecc71; }
 [data-state="denied"] .ear { fill: #ff6b6b; }
@@ -227,7 +227,7 @@ body {
   80% { transform: translateX(5px); }
 }
 
-/* acessibilidade: respeita quem prefere menos animação */
+/* accessibility: respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; }
 }

@@ -1,5 +1,5 @@
-// Popup de Pull Request. Recebe o PR do daemon (evento "pr"), mostra os
-// detalhes e oferece Abrir / Aprovar / Dispensar.
+// Pull Request popup. Receives the PR from the daemon (the "pr" event), shows
+// the details and offers Open / Approve / Dismiss.
 
 const els = {
   repo: document.getElementById("repo"),
@@ -17,7 +17,7 @@ function render(data) {
   pr = data;
   els.repo.textContent = `${data.owner}/${data.repo} #${data.number}`;
   els.title.textContent = data.title || "";
-  els.author.textContent = data.author ? `por ${data.author}` : "";
+  els.author.textContent = data.author ? `by ${data.author}` : "";
   els.status.textContent = "";
 }
 
@@ -30,13 +30,13 @@ els.open.addEventListener("click", () => {
 
 els.approve.addEventListener("click", async () => {
   if (!pr) return;
-  els.status.textContent = "Aprovando…";
+  els.status.textContent = "Approving…";
   try {
     await invoke("approve_pr", { owner: pr.owner, repo: pr.repo, number: pr.number });
-    els.status.textContent = "Aprovado ✓";
+    els.status.textContent = "Approved ✓";
     setTimeout(() => invoke("hide_pr"), 800);
   } catch (e) {
-    els.status.textContent = "Falhou: " + e;
+    els.status.textContent = "Failed: " + e;
   }
 });
 
@@ -45,12 +45,12 @@ els.dismiss.addEventListener("click", () => invoke("hide_pr"));
 if (tauri) {
   tauri.event.listen("pr", (e) => render(e.payload));
 } else {
-  // prévia no navegador
+  // browser preview
   render({
     owner: "acme",
     repo: "widget",
     number: 42,
-    title: "Corrige o parser e adiciona testes",
+    title: "Fix the parser and add tests",
     author: "alice",
     url: "https://github.com/acme/widget/pull/42",
   });

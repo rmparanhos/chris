@@ -12,7 +12,7 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   user-select: none;
   -webkit-user-select: none;
-  /* sem barra de rolagem na janela */
+  /* no scrollbar on the window */
   overflow: hidden;
 }
 
@@ -23,7 +23,7 @@ body {
 
 #card {
   flex: 1;
-  min-height: 0; /* permite que o conteúdo encolha em vez de estourar */
+  min-height: 0; /* lets the content shrink instead of overflowing */
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
