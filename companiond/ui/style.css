@@ -62,9 +62,11 @@ body {
    glance even when the dog is all black. The expression is baked into each PNG. */
 [data-sprite="dog"] #sprite-photo {
   transition: filter 0.25s ease;
+  transform-origin: 50% 90%; /* scale from the paws, so breathing looks natural */
 }
 [data-sprite="dog"][data-state="idle"] #sprite-photo {
   filter: drop-shadow(0 0 5px rgba(52, 205, 214, 0.7)); /* cyan */
+  animation: breathe-dog 4s ease-in-out infinite; /* gentle "breathing" at rest */
 }
 [data-sprite="dog"][data-state="alert"] #sprite-photo {
   filter: drop-shadow(0 0 11px #ff9f43); /* orange */
@@ -241,6 +243,11 @@ body {
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
+}
+/* softer breathing for the dog photo (scales from the paws) */
+@keyframes breathe-dog {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
 }
 @keyframes blink {
   0%, 92%, 100% { transform: scaleY(1); }
