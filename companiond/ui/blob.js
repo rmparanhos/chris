@@ -9,8 +9,31 @@
 const stage = document.getElementById("stage");
 const badge = document.getElementById("badge");
 const blob = document.getElementById("blob");
+const photo = document.getElementById("sprite-photo");
 
 const STATES = ["idle", "alert", "approved", "denied", "pr"];
+
+// Characters drawn from PNG files (one image per state), keyed by sprite name
+// -> folder under ui/. The blob/cat are inline SVG and not listed here.
+const PHOTO_SPRITES = { dog: "sprites/dog" };
+
+/** Points the <img> at the PNG for the current sprite + state. No-op for the
+ *  SVG characters (blob/cat). */
+function updatePhoto() {
+  const dir = PHOTO_SPRITES[stage.dataset.sprite];
+  if (!dir) return;
+  const state = stage.dataset.state || "idle";
+  photo.src = `${dir}/${state}.png`;
+}
+
+// If a PNG isn't there yet, fall back to the blob placeholder so we never show
+// a broken image. (Remove the art, get the blob; drop the art in, get the dog.)
+photo.addEventListener("error", () => {
+  if (stage.dataset.sprite in PHOTO_SPRITES) {
+    console.warn("CHRIS: sprite image missing, falling back to blob:", photo.src);
+    setSprite("blob");
+  }
+});
 
 /** Changes the companion's visual state. Driven by the backend at runtime.
  *  @param {string} state  idle | alert | approved | denied | pr
@@ -19,6 +42,7 @@ const STATES = ["idle", "alert", "approved", "denied", "pr"];
 function setBlobState(state, count = 0) {
   if (!STATES.includes(state)) return;
   stage.dataset.state = state;
+  updatePhoto();
   if (count > 0) {
     badge.textContent = "+" + count;
     badge.hidden = false;
@@ -31,7 +55,7 @@ function setBlobState(state, count = 0) {
 window.setBlobState = setBlobState;
 
 // ---------- character (sprite) picker ----------
-const SPRITES = ["blob", "cat"];
+const SPRITES = ["blob", "cat", "dog"];
 
 function setSprite(name) {
   if (!SPRITES.includes(name)) return;
@@ -39,6 +63,7 @@ function setSprite(name) {
   document.querySelectorAll("#picker button").forEach((b) => {
     b.classList.toggle("active", b.dataset.sprite === name);
   });
+  updatePhoto();
   try {
     localStorage.setItem("chris.sprite", name);
   } catch (_) {}
