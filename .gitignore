@@ -1,5 +1,4 @@
-# Artefatos de build do Rust
+# Rust build artifacts
 /target
 
-.github
 .claude
