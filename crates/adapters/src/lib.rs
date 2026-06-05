@@ -1,16 +1,16 @@
-//! Adapters por agente.
+//! Per-agent adapters.
 //!
-//! Cada agente de codificação manda o pedido de aprovação no SEU formato e
-//! espera a resposta no SEU formato. Estas funções traduzem esses dois lados
-//! para/dos tipos neutros do `core`. É isto que mantém o cérebro agnóstico.
+//! Each coding agent sends the approval request in ITS OWN format and expects
+//! the response in ITS OWN format. These functions translate both sides
+//! to/from the neutral types in `core`. This is what keeps the brain agnostic.
 //!
-//! Suportados: **Copilot CLI** e **Claude Code** (os payloads de `PreToolUse`
-//! são praticamente iguais; o que muda é o formato da resposta).
+//! Supported: **Copilot CLI** and **Claude Code** (the `PreToolUse` payloads
+//! are practically identical; what differs is the response format).
 
 use chris_core::{assess_risk, Agent, ApprovalRequest, Decision, ReqId};
 use serde::Deserialize;
 
-/// Erro ao interpretar o payload do agente.
+/// Error while parsing the agent payload.
 #[derive(Debug)]
 pub enum AdapterError {
     Json(serde_json::Error),
@@ -22,7 +22,7 @@ impl From<serde_json::Error> for AdapterError {
     }
 }
 
-/// O que devolver ao agente: texto pro stdout + código de saída do processo.
+/// What to return to the agent: text for stdout + the process exit code.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AgentResponse {
     pub stdout: String,
@@ -30,11 +30,11 @@ pub struct AgentResponse {
 }
 
 // ===========================================================================
-// Parsing do evento PreToolUse (comum a Copilot e Claude)
+// Parsing of the PreToolUse event (common to Copilot and Claude)
 // ===========================================================================
 
-/// Payload do evento `PreToolUse` (campos compartilhados por Copilot e Claude).
-/// `#[serde(default)]` evita erro se algum campo faltar.
+/// Payload of the `PreToolUse` event (fields shared by Copilot and Claude).
+/// `#[serde(default)]` avoids an error if some field is missing.
 #[derive(Deserialize, Default)]
 struct PreToolUse {
     #[serde(default)]
@@ -59,15 +59,15 @@ fn parse_pretooluse(payload: &str, id: ReqId, agent: Agent) -> Result<ApprovalRe
     })
 }
 
-/// Resumo legível da ação. Nunca devolve "null": cai num texto amigável.
+/// Readable summary of the action. Never returns "null": falls back to friendly text.
 fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
-    // caso comum: um comando de shell
+    // common case: a shell command
     if let Some(cmd) = input.get("command").and_then(|v| v.as_str()) {
         if !cmd.is_empty() {
             return cmd.to_string();
         }
     }
-    // alguns tools usam outros campos de texto
+    // some tools use other text fields
     for key in ["content", "path", "file_path", "url", "query"] {
         if let Some(v) = input.get(key).and_then(|v| v.as_str()) {
             if !v.is_empty() {
@@ -80,7 +80,7 @@ fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
             return s.to_string();
         }
     }
-    // sem detalhes úteis: usa o nome da ferramenta em vez de "null"
+    // no useful details: use the tool name instead of "null"
     if input.is_null()
         || input
             .as_object()
@@ -93,7 +93,7 @@ fn summarize(tool_name: &str, input: &serde_json::Value) -> String {
             format!("{tool_name} (sem detalhes)")
         };
     }
-    // objeto com campos desconhecidos: mostra compacto (mas nunca será "null")
+    // object with unknown fields: show it compact (but it will never be "null")
     input.to_string()
 }
 
@@ -105,14 +105,14 @@ pub fn parse_copilot(payload: &str, id: ReqId) -> Result<ApprovalRequest, Adapte
     parse_pretooluse(payload, id, Agent::Copilot)
 }
 
-/// Resposta no formato do Copilot.
+/// Response in Copilot's format.
 /// - `Allow`/`Deny` -> `{"permissionDecision": "...", ...}`
-/// - `Defer`        -> `{}` (cai no prompt nativo do Copilot)
+/// - `Defer`        -> `{}` (falls back to Copilot's native prompt)
 pub fn format_copilot(decision: Decision, reason: &str) -> AgentResponse {
     match decision {
-        // inclui tanto `permissionDecision` (estilo VS Code) quanto `behavior`
-        // (campo interno do Copilot), para o "allow" suprimir o prompt nativo
-        // em todas as versões.
+        // includes both `permissionDecision` (VS Code style) and `behavior`
+        // (Copilot's internal field), so that "allow" suppresses the native
+        // prompt across all versions.
         Decision::Allow => AgentResponse {
             stdout: serde_json::json!({
                 "permissionDecision": "allow",
@@ -122,7 +122,7 @@ pub fn format_copilot(decision: Decision, reason: &str) -> AgentResponse {
             .to_string(),
             exit_code: 0,
         },
-        // exit code 2 é o sinal de "deny" mais confiável do Copilot; o JSON reforça.
+        // exit code 2 is Copilot's most reliable "deny" signal; the JSON reinforces it.
         Decision::Deny => AgentResponse {
             stdout: serde_json::json!({
                 "permissionDecision": "deny",
@@ -132,7 +132,7 @@ pub fn format_copilot(decision: Decision, reason: &str) -> AgentResponse {
             .to_string(),
             exit_code: 2,
         },
-        // Defer: saída vazia -> Copilot usa o fluxo de permissão dele.
+        // Defer: empty output -> Copilot uses its own permission flow.
         Decision::Defer => AgentResponse {
             stdout: "{}".to_string(),
             exit_code: 0,
@@ -148,8 +148,8 @@ pub fn parse_claude(payload: &str, id: ReqId) -> Result<ApprovalRequest, Adapter
     parse_pretooluse(payload, id, Agent::Claude)
 }
 
-/// Resposta no formato do Claude Code (`hookSpecificOutput.permissionDecision`).
-/// - `Defer` -> saída vazia (Claude usa o fluxo de permissão normal dele).
+/// Response in Claude Code's format (`hookSpecificOutput.permissionDecision`).
+/// - `Defer` -> empty output (Claude uses its own normal permission flow).
 pub fn format_claude(decision: Decision, reason: &str) -> AgentResponse {
     let value = match decision {
         Decision::Allow => Some("allow"),
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn summary_never_null() {
-        // tool_input ausente -> nada de "null"
+        // tool_input missing -> no "null"
         let payload = r#"{ "tool_name": "mcp_tool" }"#;
         let req = parse_copilot(payload, ReqId(1)).unwrap();
         assert_eq!(req.summary, "mcp_tool (sem detalhes)");
@@ -215,7 +215,7 @@ mod tests {
 
         let deny = format_copilot(Decision::Deny, "no");
         assert!(deny.stdout.contains("\"behavior\":\"deny\""));
-        assert_eq!(deny.exit_code, 2); // exit 2 = deny confiável
+        assert_eq!(deny.exit_code, 2); // exit 2 = reliable deny
 
         assert_eq!(format_copilot(Decision::Defer, "").stdout, "{}");
     }
@@ -225,7 +225,7 @@ mod tests {
         let allow = format_claude(Decision::Allow, "ok");
         assert!(allow.stdout.contains("\"hookSpecificOutput\""));
         assert!(allow.stdout.contains("\"permissionDecision\":\"allow\""));
-        // Defer no Claude = saída vazia
+        // Defer in Claude = empty output
         assert_eq!(format_claude(Decision::Defer, "").stdout, "");
     }
 }

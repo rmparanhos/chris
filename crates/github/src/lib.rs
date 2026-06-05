@@ -1,9 +1,9 @@
-//! Notificações de Pull Request.
+//! Pull Request notifications.
 //!
-//! Faz polling na API do GitHub procurando PRs que pedem a SUA revisão, avisa
-//! quando aparecem novos e permite aprovar. A lógica de interpretar a resposta
-//! e detectar "o que é novo" é pura (e testada); só `fetch`/`approve` tocam a
-//! rede.
+//! Polls the GitHub API looking for PRs that request YOUR review, notifies
+//! when new ones appear, and lets you approve them. The logic that parses the
+//! response and detects "what is new" is pure (and tested); only
+//! `fetch`/`approve` touch the network.
 
 use std::collections::HashSet;
 
@@ -12,7 +12,7 @@ use serde::Deserialize;
 const API: &str = "https://api.github.com";
 const UA: &str = "chris-companion";
 
-/// Um Pull Request esperando atenção.
+/// A Pull Request awaiting attention.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrItem {
     pub id: u64,
@@ -24,7 +24,7 @@ pub struct PrItem {
     pub url: String,
 }
 
-/// Erros da integração.
+/// Integration errors.
 #[derive(Debug)]
 pub enum GhError {
     Http(String),
@@ -32,7 +32,7 @@ pub enum GhError {
     NoToken,
 }
 
-// --- formato cru da resposta de /search/issues ---
+// --- raw format of the /search/issues response ---
 #[derive(Deserialize)]
 struct SearchResponse {
     #[serde(default)]
@@ -55,7 +55,7 @@ struct User {
     login: String,
 }
 
-/// Interpreta o JSON de `/search/issues` em uma lista de PRs. (Puro/testável.)
+/// Parses the JSON from `/search/issues` into a list of PRs. (Pure/testable.)
 pub fn parse_search(json: &str) -> Result<Vec<PrItem>, GhError> {
     let resp: SearchResponse =
         serde_json::from_str(json).map_err(|e| GhError::Parse(e.to_string()))?;
@@ -77,9 +77,9 @@ pub fn parse_search(json: &str) -> Result<Vec<PrItem>, GhError> {
         .collect())
 }
 
-/// Extrai (owner, repo) de uma URL tipo `https://github.com/owner/repo/pull/5`.
+/// Extracts (owner, repo) from a URL like `https://github.com/owner/repo/pull/5`.
 fn owner_repo_from_url(url: &str) -> (String, String) {
-    // pega o trecho depois de "github.com/"
+    // grab the part after "github.com/"
     let tail = url
         .split("github.com/")
         .nth(1)
@@ -91,7 +91,7 @@ fn owner_repo_from_url(url: &str) -> (String, String) {
     (owner, repo)
 }
 
-/// Dado o que já foi visto, retorna só os PRs novos. (Puro/testável.)
+/// Given what has already been seen, returns only the new PRs. (Pure/testable.)
 pub fn only_new(seen: &HashSet<u64>, current: &[PrItem]) -> Vec<PrItem> {
     current
         .iter()
@@ -100,7 +100,7 @@ pub fn only_new(seen: &HashSet<u64>, current: &[PrItem]) -> Vec<PrItem> {
         .collect()
 }
 
-/// Descobre o token: env `GITHUB_TOKEN`/`GH_TOKEN`, ou `gh auth token`.
+/// Discovers the token: env `GITHUB_TOKEN`/`GH_TOKEN`, or `gh auth token`.
 pub fn discover_token() -> Option<String> {
     if let Ok(t) = std::env::var("GITHUB_TOKEN") {
         if !t.is_empty() {
@@ -112,7 +112,7 @@ pub fn discover_token() -> Option<String> {
             return Some(t);
         }
     }
-    // fallback: usa o login do GitHub CLI, se existir
+    // fallback: use the GitHub CLI login, if it exists
     let out = std::process::Command::new("gh")
         .args(["auth", "token"])
         .output()
@@ -126,7 +126,7 @@ pub fn discover_token() -> Option<String> {
     None
 }
 
-/// Busca PRs que pedem a sua revisão (precisa de rede + token).
+/// Fetches PRs that request your review (needs network + token).
 pub fn fetch_review_requests(token: &str) -> Result<Vec<PrItem>, GhError> {
     let url = format!(
         "{API}/search/issues?q={}",
@@ -144,7 +144,7 @@ pub fn fetch_review_requests(token: &str) -> Result<Vec<PrItem>, GhError> {
     parse_search(&body)
 }
 
-/// Aprova um PR (submete um review APPROVE). Precisa de rede + token.
+/// Approves a PR (submits an APPROVE review). Needs network + token.
 pub fn approve_pr(token: &str, owner: &str, repo: &str, number: u64) -> Result<(), GhError> {
     let url = format!("{API}/repos/{owner}/{repo}/pulls/{number}/reviews");
     ureq::post(&url)
@@ -156,7 +156,7 @@ pub fn approve_pr(token: &str, owner: &str, repo: &str, number: u64) -> Result<(
     Ok(())
 }
 
-/// Codificação mínima de querystring (só o que a query usa).
+/// Minimal querystring encoding (only what the query uses).
 fn urlencode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
@@ -204,9 +204,9 @@ mod tests {
     fn only_new_filters_seen() {
         let prs = parse_search(SAMPLE).unwrap();
         let mut seen = HashSet::new();
-        assert_eq!(only_new(&seen, &prs).len(), 1); // novo
+        assert_eq!(only_new(&seen, &prs).len(), 1); // new
         seen.insert(99001);
-        assert_eq!(only_new(&seen, &prs).len(), 0); // já visto
+        assert_eq!(only_new(&seen, &prs).len(), 0); // already seen
     }
 
     #[test]

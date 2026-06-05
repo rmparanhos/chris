@@ -1,33 +1,33 @@
-//! Núcleo (cérebro) do CHRIS.
+//! Core (brain) of CHRIS.
 //!
-//! Aqui mora a lógica PURA: os tipos de dados, o formato das mensagens que
-//! trafegam no fio, e as regras de decisão (risco). Nada de I/O, rede, Tauri
-//! ou async — isso fica nas "bordas". Por ser `no_std`, este mesmo código
-//! compila no PC e no microcontrolador ESP32.
+//! This is where the PURE logic lives: the data types, the format of the
+//! messages that travel over the wire, and the decision (risk) rules. No I/O,
+//! networking, Tauri or async — that stays at the "edges". Being `no_std`, this
+//! same code compiles on the PC and on the ESP32 microcontroller.
 
-// `#![no_std]` = "não dependa da biblioteca padrão (std)". A std assume um
-// sistema operacional (arquivos, threads, rede). O ESP32 não tem isso.
+// `#![no_std]` = "don't depend on the standard library (std)". std assumes an
+// operating system (files, threads, networking). The ESP32 doesn't have that.
 #![no_std]
 
-// Mas ainda queremos tipos que alocam memória (String, Vec). Eles vivem na
-// crate `alloc`, que funciona sem sistema operacional. Trazemos ela:
+// But we still want types that allocate memory (String, Vec). They live in the
+// `alloc` crate, which works without an operating system. So we pull it in:
 extern crate alloc;
 
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
-/// Versão do protocolo do fio. Firmware (ESP32) e daemon (PC) podem atualizar
-/// em ritmos diferentes; este byte deixa o descompasso detectável.
+/// Wire protocol version. Firmware (ESP32) and daemon (PC) may update at
+/// different paces; this byte makes the mismatch detectable.
 pub const PROTOCOL_VERSION: u8 = 1;
 
 // ---------------------------------------------------------------------------
-// Tipos do domínio
+// Domain types
 // ---------------------------------------------------------------------------
 
-/// Qual agente de codificação originou o pedido.
-// `derive(...)` faz o compilador gerar código automático: comparar (`Eq`),
-// copiar, imprimir para debug, e (de)serializar (`Serialize`/`Deserialize`).
+/// Which coding agent originated the request.
+// `derive(...)` makes the compiler generate code automatically: compare (`Eq`),
+// copy, print for debug, and (de)serialize (`Serialize`/`Deserialize`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Agent {
     Copilot,
@@ -35,19 +35,19 @@ pub enum Agent {
     Codex,
 }
 
-/// A resposta a um pedido de aprovação.
+/// The response to an approval request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Decision {
-    /// Pode executar.
+    /// May execute.
     Allow,
-    /// Não pode (ex.: usuário negou, ou timeout — fail-safe).
+    /// May not (e.g.: user denied, or timeout — fail-safe).
     Deny,
-    /// CHRIS não decide; o agente cai no prompt nativo dele
-    /// (ex.: quando o daemon não está rodando).
+    /// CHRIS doesn't decide; the agent falls back to its native prompt
+    /// (e.g.: when the daemon isn't running).
     Defer,
 }
 
-/// Quão arriscada parece a ação. Mostrado no popup para ajudar o usuário.
+/// How risky the action appears. Shown in the popup to help the user.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Risk {
     Low,
@@ -55,12 +55,12 @@ pub enum Risk {
     High,
 }
 
-/// Identificador de um pedido. Um `u32` simples — leve e funciona no ESP32
-/// (UUID seria exagero para correlacionar pergunta e resposta).
+/// Identifier for a request. A simple `u32` — lightweight and works on the
+/// ESP32 (a UUID would be overkill to correlate question and answer).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReqId(pub u32);
 
-/// Estado visual do blob, dirigido pelo cérebro e renderizado pelo corpo.
+/// Visual state of the blob, driven by the brain and rendered by the body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlobState {
     Idle,
@@ -69,22 +69,22 @@ pub enum BlobState {
     Denied,
 }
 
-/// Um pedido de aprovação já normalizado (o adapter converteu o payload do
-/// agente para isto). O cérebro só conhece este formato — daí o "agnóstico".
+/// An already-normalized approval request (the adapter converted the agent's
+/// payload into this). The brain only knows this format — hence "agnostic".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalRequest {
     pub id: ReqId,
     pub agent: Agent,
-    /// Nome da ferramenta (ex.: "shell", "write_file").
+    /// Tool name (e.g.: "shell", "write_file").
     pub tool: String,
-    /// Resumo legível (ex.: o comando que será executado).
+    /// Human-readable summary (e.g.: the command that will be executed).
     pub summary: String,
-    /// Diretório de trabalho do agente.
+    /// The agent's working directory.
     pub cwd: String,
     pub risk: Risk,
 }
 
-/// A decisão enviada de volta para o hook.
+/// The decision sent back to the hook.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecisionMsg {
     pub id: ReqId,
@@ -92,8 +92,8 @@ pub struct DecisionMsg {
     pub reason: String,
 }
 
-/// Tudo que trafega no fio entre hook ⇄ daemon (e, no futuro, PC ⇄ ESP32).
-// `enum` aqui é uma "união": uma `Msg` é OU um pedido OU uma decisão.
+/// Everything that travels over the wire between hook ⇄ daemon (and, in the future, PC ⇄ ESP32).
+// `enum` here is a "union": a `Msg` is EITHER a request OR a decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Msg {
     Request(ApprovalRequest),
@@ -101,32 +101,32 @@ pub enum Msg {
 }
 
 // ---------------------------------------------------------------------------
-// Protocolo do fio (serialização)
+// Wire protocol (serialization)
 // ---------------------------------------------------------------------------
 
-/// Erros possíveis ao decodificar bytes recebidos.
-// Sem `thiserror`/`anyhow` (que precisam de std) — um enum simples basta.
+/// Possible errors when decoding received bytes.
+// No `thiserror`/`anyhow` (which need std) — a simple enum is enough.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WireError {
-    /// Não veio nenhum byte.
+    /// No bytes came in.
     Empty,
-    /// O byte de versão não bate com o nosso.
+    /// The version byte doesn't match ours.
     UnsupportedVersion(u8),
-    /// O postcard não conseguiu interpretar o conteúdo.
+    /// postcard couldn't interpret the content.
     Decode,
 }
 
-/// Transforma uma `Msg` em bytes prontos para enviar.
-/// O primeiro byte é sempre a versão do protocolo.
+/// Turns a `Msg` into bytes ready to send.
+/// The first byte is always the protocol version.
 pub fn encode(msg: &Msg) -> Result<Vec<u8>, postcard::Error> {
     let mut buf = postcard::to_allocvec(msg)?;
-    buf.insert(0, PROTOCOL_VERSION); // prefixa a versão
+    buf.insert(0, PROTOCOL_VERSION); // prefix the version
     Ok(buf)
 }
 
-/// Lê bytes recebidos de volta para uma `Msg`, validando a versão.
+/// Reads received bytes back into a `Msg`, validating the version.
 pub fn decode(bytes: &[u8]) -> Result<Msg, WireError> {
-    // separa o primeiro byte (versão) do resto (conteúdo)
+    // split the first byte (version) from the rest (content)
     let (&version, rest) = bytes.split_first().ok_or(WireError::Empty)?;
     if version != PROTOCOL_VERSION {
         return Err(WireError::UnsupportedVersion(version));
@@ -135,16 +135,16 @@ pub fn decode(bytes: &[u8]) -> Result<Msg, WireError> {
 }
 
 // ---------------------------------------------------------------------------
-// Regras de decisão: avaliação de risco
+// Decision rules: risk assessment
 // ---------------------------------------------------------------------------
 
-/// Heurística simples de risco a partir do comando/ação.
-/// (Default do MVP — será refinada depois.)
+/// Simple risk heuristic based on the command/action.
+/// (MVP default — will be refined later.)
 pub fn assess_risk(command: &str) -> Risk {
-    // Comparamos sempre em minúsculas para não depender de maiúsc/minúsc.
+    // We always compare in lowercase so it doesn't depend on case.
     let c = to_lower(command);
 
-    // Sinais de alto risco: apagar, privilégio, formatar, baixar-e-executar.
+    // High-risk signs: delete, privilege, format, download-and-execute.
     const HIGH: [&str; 8] = [
         "rm -rf", "rm -r", " del ", "rmdir", "sudo ", "mkfs", "dd if=", ":(){",
     ];
@@ -154,7 +154,7 @@ pub fn assess_risk(command: &str) -> Risk {
         return Risk::High;
     }
 
-    // Risco médio: escreve/move/instala coisas.
+    // Medium risk: writes/moves/installs things.
     const MEDIUM: [&str; 6] = ["git push", "npm install", "pip install", " mv ", " cp ", " > "];
     if MEDIUM.iter().any(|p| c.contains(p)) {
         return Risk::Medium;
@@ -163,8 +163,8 @@ pub fn assess_risk(command: &str) -> Risk {
     Risk::Low
 }
 
-/// Minúsculas sem depender de `std` (`str::to_lowercase` precisa de alloc/std
-/// para Unicode; aqui basta ASCII, que é o caso de comandos de shell).
+/// Lowercase without depending on `std` (`str::to_lowercase` needs alloc/std
+/// for Unicode; here ASCII suffices, which is the case for shell commands).
 fn to_lower(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
@@ -174,31 +174,31 @@ fn to_lower(s: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Abstrações de borda (implementadas no PC e, depois, no ESP32)
+// Edge abstractions (implemented on the PC and, later, on the ESP32)
 // ---------------------------------------------------------------------------
 
-/// Como as mensagens viajam. No PC = named pipe; no ESP32 = Wi-Fi/BLE/serial.
-/// O cérebro fala com isto sem saber qual é o meio.
+/// How messages travel. On the PC = named pipe; on the ESP32 = Wi-Fi/BLE/serial.
+/// The brain talks to this without knowing what the medium is.
 pub trait Transport {
-    /// Tipo de erro específico de cada implementação.
+    /// Error type specific to each implementation.
     type Error;
     fn send(&mut self, msg: &Msg) -> Result<(), Self::Error>;
-    /// Retorna `Ok(None)` quando ainda não chegou nada.
+    /// Returns `Ok(None)` when nothing has arrived yet.
     fn recv(&mut self) -> Result<Option<Msg>, Self::Error>;
 }
 
-/// Como o "corpo" se apresenta. No PC = webview do blob; no ESP32 = tela + botões.
+/// How the "body" presents itself. On the PC = blob webview; on the ESP32 = screen + buttons.
 pub trait Presentation {
-    /// Muda a animação do blob.
+    /// Changes the blob's animation.
     fn react(&mut self, state: BlobState);
-    /// Mostra os detalhes de um pedido.
+    /// Shows the details of a request.
     fn show(&mut self, req: &ApprovalRequest);
-    /// Lê a entrada do usuário, se houver (clique no botão / botão físico).
+    /// Reads user input, if any (button click / physical button).
     fn poll_input(&mut self) -> Option<Decision>;
 }
 
 // ---------------------------------------------------------------------------
-// Testes (rodam com `cargo test`)
+// Tests (run with `cargo test`)
 // ---------------------------------------------------------------------------
 #[cfg(test)]
 mod tests {
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn roundtrip_request() {
-        // Cria um pedido, codifica, decodifica e confere que voltou igual.
+        // Create a request, encode, decode and check that it came back identical.
         let original = Msg::Request(ApprovalRequest {
             id: ReqId(42),
             agent: Agent::Copilot,
@@ -217,13 +217,13 @@ mod tests {
             risk: Risk::High,
         });
         let bytes = encode(&original).unwrap();
-        assert_eq!(bytes[0], PROTOCOL_VERSION); // versão na frente
+        assert_eq!(bytes[0], PROTOCOL_VERSION); // version at the front
         assert_eq!(decode(&bytes).unwrap(), original);
     }
 
     #[test]
     fn rejects_wrong_version() {
-        let bytes = [99u8, 0, 0]; // versão 99 não existe
+        let bytes = [99u8, 0, 0]; // version 99 doesn't exist
         assert_eq!(decode(&bytes), Err(WireError::UnsupportedVersion(99)));
     }
 

@@ -1,12 +1,13 @@
-//! Transporte IPC local do CHRIS.
+//! CHRIS local IPC transport.
 //!
-//! É uma das "bordas": pega as `Msg` do `core` e as faz trafegar entre dois
-//! processos na mesma máquina — o `hook` (cliente) e o `daemon` (servidor).
-//! `interprocess` cuida da diferença entre named pipe (Windows) e unix
-//! socket (Linux/macOS), então o mesmo código serve nos três.
+//! This is one of the "edges": it takes the `core`'s `Msg`s and moves them
+//! between two processes on the same machine — the `hook` (client) and the
+//! `daemon` (server). `interprocess` handles the difference between a named
+//! pipe (Windows) and a unix socket (Linux/macOS), so the same code works on
+//! all three.
 //!
-//! Enquadramento ("framing"): cada mensagem vai com um prefixo de 4 bytes
-//! (tamanho), seguido dos bytes do `core` (1 byte de versão + postcard).
+//! Framing: each message is sent with a 4-byte length prefix, followed by the
+//! `core`'s bytes (1 version byte + postcard).
 
 use std::io::{self, Read, Write};
 
@@ -15,31 +16,31 @@ use interprocess::local_socket::{
     prelude::*, GenericNamespaced, ListenerOptions, Stream,
 };
 
-/// Nome do "cano". No Windows vira `\\.\pipe\chris-companion`; no Linux, um
-/// socket no namespace abstrato. O mesmo identificador nos dois lados.
+/// Name of the "pipe". On Windows it becomes `\\.\pipe\chris-companion`; on
+/// Linux, a socket in the abstract namespace. The same identifier on both sides.
 pub const SOCKET_NAME: &str = "chris-companion.sock";
 
 fn socket_name() -> io::Result<interprocess::local_socket::Name<'static>> {
     SOCKET_NAME.to_ns_name::<GenericNamespaced>()
 }
 
-/// Lado servidor (daemon): abre o cano e fica escutando conexões.
+/// Server side (daemon): opens the pipe and listens for connections.
 pub fn listen() -> io::Result<interprocess::local_socket::Listener> {
     ListenerOptions::new().name(socket_name()?).create_sync()
 }
 
-/// Aceita a próxima conexão. Wrapper para o chamador não precisar importar o
-/// trait do `interprocess`.
+/// Accepts the next connection. A wrapper so the caller doesn't need to import
+/// the `interprocess` trait.
 pub fn accept(listener: &interprocess::local_socket::Listener) -> io::Result<Stream> {
     listener.accept()
 }
 
-/// Lado cliente (hook): conecta no cano do daemon.
+/// Client side (hook): connects to the daemon's pipe.
 pub fn connect() -> io::Result<Stream> {
     Stream::connect(socket_name()?)
 }
 
-/// Envia uma mensagem (com prefixo de tamanho).
+/// Sends a message (with a length prefix).
 pub fn write_msg<W: Write>(w: &mut W, msg: &Msg) -> io::Result<()> {
     let bytes = encode(msg).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "encode"))?;
     let len = (bytes.len() as u32).to_be_bytes();
@@ -48,7 +49,7 @@ pub fn write_msg<W: Write>(w: &mut W, msg: &Msg) -> io::Result<()> {
     w.flush()
 }
 
-/// Lê uma mensagem (lê o tamanho, depois o conteúdo).
+/// Reads a message (reads the length, then the content).
 pub fn read_msg<R: Read>(r: &mut R) -> io::Result<Msg> {
     let mut len = [0u8; 4];
     r.read_exact(&mut len)?;
@@ -68,7 +69,7 @@ mod tests {
     fn roundtrip_over_socket() {
         let listener = listen().expect("abrir o cano");
 
-        // servidor: aceita 1 conexão, lê o pedido, responde Allow
+        // server: accepts 1 connection, reads the request, responds Allow
         let server = thread::spawn(move || {
             let mut conn = listener.accept().expect("aceitar conexão");
             let got = read_msg(&mut conn).expect("ler pedido");
@@ -84,7 +85,7 @@ mod tests {
             write_msg(&mut conn, &resp).expect("responder");
         });
 
-        // cliente: conecta, manda o pedido, lê a decisão
+        // client: connects, sends the request, reads the decision
         let mut client = connect().expect("conectar");
         let req = Msg::Request(ApprovalRequest {
             id: ReqId(7),

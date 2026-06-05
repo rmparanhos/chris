@@ -1,9 +1,9 @@
-//! Teste ponta-a-ponta do `chris hook`: roda o binário de verdade, com um
-//! daemon-stub respondendo pelo cano IPC. Prova que adapter + transporte +
-//! CLI funcionam juntos.
+//! End-to-end test of `chris hook`: runs the real binary, with a daemon-stub
+//! responding over the IPC pipe. Proves that adapter + transport + CLI work
+//! together.
 //!
-//! Os dois cenários ficam num único teste (sequencial) porque compartilham o
-//! mesmo nome de cano global — rodá-los em paralelo causaria corrida.
+//! Both scenarios live in a single (sequential) test because they share the
+//! same global pipe name — running them in parallel would cause a race.
 
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -33,7 +33,7 @@ fn run_hook() -> String {
 
 #[test]
 fn hook_end_to_end() {
-    // --- cenário 1: daemon responde Allow ---
+    // --- scenario 1: daemon responds Allow ---
     let listener = transport::listen().expect("abrir o cano");
     let server = thread::spawn(move || {
         let mut conn = transport::accept(&listener).expect("aceitar");
@@ -46,7 +46,7 @@ fn hook_end_to_end() {
             &Msg::Decision(DecisionMsg { id, decision: Decision::Allow, reason: "ok".into() }),
         )
         .expect("responder");
-        // o listener é solto aqui (cano fechado)
+        // the listener is dropped here (pipe closed)
     });
     let stdout = run_hook();
     assert!(
@@ -55,7 +55,7 @@ fn hook_end_to_end() {
     );
     server.join().unwrap();
 
-    // --- cenário 2: sem daemon -> Defer (saída "{}") ---
+    // --- scenario 2: no daemon -> Defer (output "{}") ---
     let stdout = run_hook();
     assert_eq!(stdout.trim(), "{}", "esperava defer (saída vazia)");
 }

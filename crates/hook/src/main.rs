@@ -1,9 +1,9 @@
-//! CLI do CHRIS (`chris`).
+//! CHRIS CLI (`chris`).
 //!
-//! Dois modos:
-//!   * `chris hook --agent copilot`    -> chamado pelo agente no `preToolUse`.
-//!         Lê o payload do stdin, pergunta ao daemon e devolve a decisão.
-//!   * `chris install --agent copilot` -> escreve a config de hook do agente.
+//! Two modes:
+//!   * `chris hook --agent copilot`    -> called by the agent on `preToolUse`.
+//!         Reads the payload from stdin, asks the daemon and returns the decision.
+//!   * `chris install --agent copilot` -> writes the agent's hook config.
 
 use std::io::{Read, Write};
 use std::sync::mpsc;
@@ -13,9 +13,9 @@ use chris_adapters::{format_claude, format_copilot, parse_claude, parse_copilot}
 use chris_core::{Decision, Msg, ReqId};
 use chris_transport_ipc as transport;
 
-/// Nosso timeout interno (deny se o usuário não responder). Tem que ser MENOR
-/// que o `timeoutSec` configurado no agente, para respondermos antes de ele
-/// desistir e ignorar o hook. Ajustável via env `CHRIS_TIMEOUT_SECS`.
+/// Our internal timeout (deny if the user doesn't respond). It must be SMALLER
+/// than the `timeoutSec` configured in the agent, so we respond before it gives
+/// up and ignores the hook. Adjustable via the `CHRIS_TIMEOUT_SECS` env var.
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
 
 fn main() {
@@ -42,7 +42,7 @@ fn print_help() {
     );
 }
 
-/// Lê `--agent <x>` dos argumentos (default: copilot).
+/// Reads `--agent <x>` from the arguments (default: copilot).
 fn agent_arg(args: &[String]) -> String {
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -61,24 +61,24 @@ fn agent_arg(args: &[String]) -> String {
 
 fn run_hook(args: &[String]) {
     let agent = agent_arg(args);
-    // resposta de "deixa passar" no formato de cada agente (usada em erros)
+    // "let it pass" response in each agent's format (used on errors)
     let passthrough = if agent == "claude" { "" } else { "{}" };
     if agent != "copilot" && agent != "claude" {
         print!("{passthrough}");
         return;
     }
 
-    // 1) lê o payload do agente no stdin
+    // 1) read the agent's payload from stdin
     let mut payload = String::new();
     if std::io::stdin().read_to_string(&mut payload).is_err() {
         print!("{passthrough}");
         return;
     }
 
-    // 2) id único do pedido (nanos do relógio, truncado)
+    // 2) unique request id (clock nanos, truncated)
     let id = ReqId(now_nanos() as u32);
 
-    // 3) traduz para o formato neutro (parsing é igual nos dois agentes)
+    // 3) translate to the neutral format (parsing is the same for both agents)
     let parsed = if agent == "claude" {
         parse_claude(&payload, id)
     } else {
@@ -92,10 +92,10 @@ fn run_hook(args: &[String]) {
         }
     };
 
-    // 4) pergunta ao daemon, com timeout
+    // 4) ask the daemon, with a timeout
     let decision = ask_daemon(req);
 
-    // 5) responde no formato do agente
+    // 5) respond in the agent's format
     let reason = match decision {
         Decision::Allow => "approved by the user in CHRIS",
         Decision::Deny => "denied / no response in CHRIS",
@@ -111,10 +111,10 @@ fn run_hook(args: &[String]) {
     std::process::exit(resp.exit_code);
 }
 
-/// Conversa com o daemon numa thread e aplica a política de timeout.
+/// Talks to the daemon on a thread and applies the timeout policy.
 ///
-/// - daemon ausente / erro de I/O -> `Defer` (cai no prompt nativo do agente)
-/// - daemon presente mas sem resposta a tempo -> `Deny` (fail-safe)
+/// - daemon absent / I/O error -> `Defer` (falls back to the agent's native prompt)
+/// - daemon present but no response in time -> `Deny` (fail-safe)
 fn ask_daemon(req: chris_core::ApprovalRequest) -> Decision {
     let timeout = std::env::var("CHRIS_TIMEOUT_SECS")
         .ok()
@@ -135,9 +135,9 @@ fn ask_daemon(req: chris_core::ApprovalRequest) -> Decision {
     });
 
     match rx.recv_timeout(Duration::from_secs(timeout)) {
-        Ok(Ok(d)) => d,             // o daemon respondeu
-        Ok(Err(_)) => Decision::Defer, // não deu pra falar com o daemon
-        Err(_) => Decision::Deny,   // timeout: ninguém respondeu a tempo
+        Ok(Ok(d)) => d,             // the daemon responded
+        Ok(Err(_)) => Decision::Defer, // couldn't talk to the daemon
+        Err(_) => Decision::Deny,   // timeout: nobody responded in time
     }
 }
 
@@ -155,7 +155,7 @@ fn now_nanos() -> u128 {
 fn run_install(args: &[String]) {
     let agent = agent_arg(args);
 
-    // caminho absoluto do próprio binário (citado, por causa de espaços no Windows)
+    // absolute path of the binary itself (quoted, because of spaces on Windows)
     let exe = std::env::current_exe()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "chris".to_string());
@@ -171,10 +171,10 @@ fn run_install(args: &[String]) {
     }
 }
 
-/// Copilot: escreve `.github/hooks/chris.json`.
+/// Copilot: writes `.github/hooks/chris.json`.
 fn install_copilot(invoke: &str) {
-    // `timeoutSec` BEM maior que o nosso timeout interno, para o nosso `Deny`
-    // por inatividade chegar antes de o Copilot desistir do hook.
+    // `timeoutSec` MUCH larger than our internal timeout, so our inactivity
+    // `Deny` arrives before Copilot gives up on the hook.
     let config = serde_json::json!({
         "version": 1,
         "hooks": {
@@ -205,7 +205,7 @@ fn install_copilot(invoke: &str) {
     println!("Reminder: the daemon (companiond) must be running for the blob to react.");
 }
 
-/// Claude Code: MESCLA o hook em `.claude/settings.json` (não apaga o resto).
+/// Claude Code: MERGES the hook into `.claude/settings.json` (doesn't erase the rest).
 fn install_claude(invoke: &str) {
     let dir = std::path::Path::new(".claude");
     if let Err(e) = std::fs::create_dir_all(dir) {
@@ -214,7 +214,7 @@ fn install_claude(invoke: &str) {
     }
     let path = dir.join("settings.json");
 
-    // lê o settings existente (ou começa um objeto vazio)
+    // read the existing settings (or start with an empty object)
     let mut root: serde_json::Value = if path.exists() {
         std::fs::read_to_string(&path)
             .ok()
@@ -227,7 +227,7 @@ fn install_claude(invoke: &str) {
         root = serde_json::json!({});
     }
 
-    // garante hooks.PreToolUse como array
+    // ensure hooks.PreToolUse is an array
     let obj = root.as_object_mut().unwrap();
     let hooks = obj.entry("hooks").or_insert_with(|| serde_json::json!({}));
     if !hooks.is_object() {
@@ -243,7 +243,7 @@ fn install_claude(invoke: &str) {
     }
     let arr = pre.as_array_mut().unwrap();
 
-    // evita duplicar se já instalado
+    // avoid duplicating if already installed
     let exists = arr.iter().any(|e| {
         e.get("hooks").and_then(|h| h.as_array()).map_or(false, |hs| {
             hs.iter()
