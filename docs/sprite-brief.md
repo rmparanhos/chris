@@ -5,57 +5,100 @@ to events with **5 states**. Each state = the **same character, same pose and
 size**, only the **body color + facial expression** change. We need each state
 as its own image so it drops straight into the app.
 
+## Visual style: retro 16-bit anime sprite (pixel art)
+
+Think **SNES/JRPG sprite with an anime face**: crisp pixels, a limited palette,
+clean black/dark outline, simple cel shading (one light + one shadow tone), big
+expressive anime eyes. Cute, readable at small size. **Not** smooth vector, not
+3D, not painterly.
+
 ## Output format (the important part)
 
 - **5 separate files per character**, transparent background (PNG with alpha).
-- **Square canvas, 512×512 px**, character centered, with ~12% empty padding
-  around it (so it never touches the edges).
+- **Square canvas, 1:1.** Generate at 1024×1024, then **downscale to 256×256
+  with nearest-neighbor** so the pixels stay crisp (don't let it get blurry).
 - **Identical scale, position and camera** across all 5 frames — only color and
-  expression differ. They will be swapped in place, so they must line up.
-- **Flat colors, clean thick outline, cute/kawaii mascot** style. Front-facing.
-- **No baked-in shadow and no background** (the app adds its own drop-shadow and
-  the window is transparent).
+  expression differ. They are swapped in place, so they must line up.
+- **Crisp pixels, limited palette, dark outline.** No baked-in shadow under the
+  character and no background (the app adds its own drop-shadow; the window is
+  transparent).
 - File names exactly:
   `blob-idle.png`, `blob-alert.png`, `blob-approved.png`, `blob-denied.png`, `blob-pr.png`
   (and the same set with the `cat-` prefix for the second character).
-- Optional but nice: also deliver a single horizontal **sprite sheet**
-  (5 frames in a row, 2560×512) for previewing.
 
 ## The 5 states (exact colors)
 
-| State      | Body color (hex) | Face / expression                                  |
-|------------|------------------|----------------------------------------------------|
-| `idle`     | `#34cdd6` cyan   | calm, neutral mouth (straight line), relaxed eyes  |
-| `alert`    | `#ff9f43` orange | surprised: small round "o" mouth + a bold `!` mark  |
-| `approved` | `#2ecc71` green  | happy, big smile, cheerful eyes                    |
-| `denied`   | `#ff6b6b` coral  | sad/disapproving, frown (mouth curved down)        |
-| `pr`       | `#539bf5` blue   | pleased, friendly smile (a notification arrived)   |
+| State      | Body color (hex) | Face / expression                                   |
+|------------|------------------|-----------------------------------------------------|
+| `idle`     | `#34cdd6` cyan   | calm, neutral mouth, relaxed anime eyes             |
+| `alert`    | `#ff9f43` orange | surprised: small round "o" mouth + a bold `!` mark   |
+| `approved` | `#2ecc71` green  | happy, big smile, sparkly cheerful eyes             |
+| `denied`   | `#ff6b6b` coral  | sad/annoyed, frown (mouth curved down)              |
+| `pr`       | `#539bf5` blue   | pleased, friendly smile (a notification arrived)    |
 
-Eyes/outline detail color: very dark teal `#08343a`.
+Outline / eye detail color: very dark teal `#08343a`.
 
-## Paste-ready prompt (English works best in Leonardo.AI)
+## Paste-ready prompt (English works best in Leonardo)
 
-> Cute minimalist desktop mascot character, front view, simple rounded blob
-> shape with two big friendly eyes, thick clean vector outline, flat colors,
-> kawaii style, centered, isolated on a fully transparent background, no shadow,
-> soft and rounded, app icon quality, high resolution.
+**Blob:**
+
+> 16-bit pixel art sprite, retro JRPG / anime style, cute round blob mascot
+> character, big expressive anime eyes, chibi, front view, thick dark outline,
+> limited color palette, crisp clean pixels, simple cel shading, centered,
+> isolated on a transparent background, no background, no drop shadow, game
+> sprite sheet asset.
 >
-> Generate the SAME character in 5 expression variants, keeping identical pose,
-> size and position, changing only body color and face:
-> 1) calm with a neutral straight mouth, body color cyan #34cdd6;
-> 2) surprised with a small round open mouth and a bold exclamation mark, body color orange #ff9f43;
-> 3) very happy with a big smile, body color green #2ecc71;
-> 4) sad/disapproving with a downturned frown, body color coral #ff6b6b;
-> 5) pleased with a friendly smile, body color blue #539bf5.
+> Same character in 5 expression variants, identical pose / size / position,
+> only body color and face change:
+> 1) calm neutral straight mouth, body color cyan #34cdd6;
+> 2) surprised small round open mouth with a bold exclamation mark, body color orange #ff9f43;
+> 3) very happy big smile and sparkly eyes, body color green #2ecc71;
+> 4) sad annoyed downturned frown, body color coral #ff6b6b;
+> 5) pleased friendly smile, body color blue #539bf5.
 
-For the **second character (cat)**, reuse the same prompt but replace
-"rounded blob shape" with "rounded cat with two triangular ears and small
-whiskers", and keep everything else identical.
+**Cat** (same prompt, swap the shape line):
 
-## Style references already in the app
+> ...replace "cute round blob mascot" with "cute chibi cat mascot with two
+> triangular ears and small whiskers"...
 
-The current placeholder art is built from these shapes, if Leonardo wants to
-match the existing look: a soft ellipse body, two dark circular eyes, a thin
-rounded mouth, and (for the cat) two triangular ears with pink inner ears, a
-small triangular nose and three whiskers per side. Keep it friendly and very
-simple — it is shown at ~150 px on screen, so fine detail is lost.
+**Negative prompt** (paste in the negative field):
+
+> blurry, smooth gradients, antialiased, 3d render, realistic, photo, painterly,
+> watercolor, soft focus, extra limbs, text, watermark, jpeg artifacts,
+> background, drop shadow, low contrast
+
+## Leonardo settings (how to drive it)
+
+- **Model:** `Leonardo Anime XL` (best for the anime face). To push more toward
+  pure pixel art, switch to a pixel-art finetune / community model, or add the
+  **"Pixel Art" Element** with the slider around 0.4–0.6.
+- **Preset Style:** `Pixel Art` if available, otherwise `Anime` / `Dynamic`.
+- **Orientation / aspect ratio:** **Square (1:1)** — a sprite is square. Set
+  dimensions to **1024×1024** (then downscale to 256 as above).
+- **Transparency:** turn **ON** (transparent PNG / "Foreground" mode) so you get
+  alpha straight away. If your model doesn't support it, generate on a flat
+  magenta `#ff00ff` background and remove it in Leonardo's Canvas → Remove
+  Background.
+- **Alchemy:** OFF (keeps pixels crisp; Alchemy tends to smooth them).
+- **PhotoReal / High Contrast:** OFF.
+- **Guidance Scale:** 7–9 (higher = follows the prompt more).
+- **Images per generation:** 4, so you can pick the best base.
+
+### Keeping the 5 frames consistent (important)
+
+AI won't naturally draw the exact same character five times. Do this:
+
+1. Generate the **idle** frame first. Pick the best one.
+2. **Copy its Seed** and reuse that same seed for the other 4, changing only the
+   expression/color words. Same seed + same prompt skeleton = much closer match.
+3. Even better: use **Image Guidance → Character Reference** (or Image-to-Image
+   at strength ~0.35) pointing at your chosen idle frame, so frames 2–5 keep the
+   same body/eyes and only the face/color change.
+4. Generate at 1024, then **downscale to 256 with nearest-neighbor** (any image
+   editor, or a pixelator) to lock in clean pixels.
+
+## Integration
+
+Once you have the 10 PNGs (5 blob + 5 cat), send them to me and I'll wire them
+into the app (swap the current SVG for one image per state). The names above are
+all I need for it to "just work".
