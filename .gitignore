@@ -1,0 +1,5 @@
+# Artefatos de build do Rust
+/target
+
+.github
+.claude

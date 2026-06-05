@@ -1,0 +1,26 @@
+# O daemon do CHRIS: app Tauri que mostra o blob na tela e um ícone na bandeja.
+# É uma das "bordas" (usa o sistema operacional), então é `std` normal — só
+# compila/roda numa máquina com webview (Windows/macOS/Linux com desktop).
+[package]
+name = "companiond"
+version = "0.1.0"
+edition = "2021"
+description = "CHRIS daemon: blob na bandeja + janela transparente (Tauri v2)."
+
+[build-dependencies]
+# gera código de suporte do Tauri a partir do tauri.conf.json
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# tray-icon: ícone na bandeja. image-png: ícone PNG na bandeja.
+# macos-private-api: exigida porque o tauri.conf.json usa macOSPrivateApi
+# (janela transparente no macOS).
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+
+# o cérebro portável (M0), o transporte IPC (M2) e a integração GitHub (PRs)
+chris-core = { path = "../crates/core" }
+chris-transport-ipc = { path = "../crates/transport-ipc" }
+chris-github = { path = "../crates/github" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

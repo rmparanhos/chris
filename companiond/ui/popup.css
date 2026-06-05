@@ -1,0 +1,125 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  /* no scrollbar on the window */
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  padding: 8px;
+}
+
+#card {
+  flex: 1;
+  min-height: 0; /* lets the content shrink instead of overflowing */
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 14px;
+  background: #1e2330;
+  color: #e8ecf3;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #2ecc71; /* low */
+  color: #07210f;
+}
+[data-risk="medium"] .risk {
+  background: #ffb02e;
+  color: #2a1c00;
+}
+[data-risk="high"] .risk {
+  background: #ff5a5a;
+  color: #2a0606;
+}
+
+.agent {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.tool {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+}
+
+.summary {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #11151f;
+  color: #cdd6e4;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 74px;
+  overflow: auto;
+}
+
+.cwd {
+  font-size: 11px;
+  opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+footer {
+  margin-top: auto;
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.deny {
+  background: #38404f;
+  color: #e8ecf3;
+}
+.deny:hover {
+  background: #454e60;
+}
+.allow {
+  background: #2ecc71;
+  color: #06230f;
+}
+.allow:hover {
+  background: #34d97a;
+}

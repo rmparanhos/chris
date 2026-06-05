@@ -1,0 +1,17 @@
+# O "cérebro" do CHRIS: lógica pura, sem I/O, sem async.
+# É `no_std` para poder rodar TANTO no PC QUANTO no microcontrolador ESP32.
+[package]
+name = "chris-core"
+version = "0.1.0"
+edition = "2021"
+description = "Núcleo portável (no_std) do CHRIS: tipos, protocolo e regras de decisão."
+
+[dependencies]
+# serde: transforma structs em bytes e vice-versa (serialização).
+# default-features = false + "alloc" => versão que NÃO depende do sistema
+# operacional, logo funciona no ESP32.
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+
+# postcard: formato binário compacto, feito para embarcados. É o que viaja
+# no "fio" entre o PC e o corpo (futuro ESP32).
+postcard = { version = "1", default-features = false, features = ["alloc"] }

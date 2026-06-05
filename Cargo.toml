@@ -1,0 +1,11 @@
+# Workspace raiz do CHRIS.
+# Um "workspace" agrupa várias crates (pacotes Rust) que compilam juntas e
+# compartilham dependências. Por enquanto só temos o cérebro (`core`); as
+# bordas (hook, daemon Tauri, firmware ESP32) entram nos próximos marcos.
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/transport-ipc", "crates/adapters", "crates/hook", "crates/github", "companiond"]
+# `cargo build`/`cargo test` sem argumentos mexem nas crates que compilam em
+# qualquer lugar (core + bordas sem GUI). O app Tauri (companiond) precisa de
+# webview do sistema, então é compilado explicitamente com `-p companiond`.
+default-members = ["crates/core", "crates/transport-ipc", "crates/adapters", "crates/hook", "crates/github"]

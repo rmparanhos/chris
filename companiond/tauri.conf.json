@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CHRIS",
+  "version": "0.1.0",
+  "identifier": "dev.chris.companion",
+  "build": {
+    "frontendDist": "ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "blob",
+        "title": "CHRIS",
+        "url": "index.html",
+        "width": 180,
+        "height": 200,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "center": false
+      },
+      {
+        "label": "popup",
+        "title": "CHRIS — aprovação",
+        "url": "popup.html",
+        "width": 400,
+        "height": 250,
+        "visible": false,
+        "focus": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "center": false
+      },
+      {
+        "label": "pr",
+        "title": "CHRIS — Pull Request",
+        "url": "pr.html",
+        "width": 400,
+        "height": 230,
+        "visible": false,
+        "focus": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "center": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/icon.png", "icons/icon.ico"]
+  }
+}

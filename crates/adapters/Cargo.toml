@@ -1,0 +1,12 @@
+# Adapters: traduzem o payload de cada agente <-> os tipos do `core`.
+# É no PC (usa serde_json, que é std). MVP = Copilot.
+[package]
+name = "chris-adapters"
+version = "0.1.0"
+edition = "2021"
+description = "Adapters por agente: payload do hook <-> tipos do core do CHRIS."
+
+[dependencies]
+chris-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

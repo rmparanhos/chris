@@ -1,0 +1,22 @@
+# A CLI do CHRIS. Gera o binário `chris` com dois subcomandos:
+#   chris hook    --agent copilot   (é o que o agente chama no preToolUse)
+#   chris install --agent copilot   (escreve a config de hook do agente)
+[package]
+name = "chris-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI do CHRIS: hook de aprovação + instalador."
+
+[[bin]]
+name = "chris"
+path = "src/main.rs"
+
+[dependencies]
+chris-core = { path = "../core" }
+chris-adapters = { path = "../adapters" }
+chris-transport-ipc = { path = "../transport-ipc" }
+serde_json = "1"
+
+[dev-dependencies]
+chris-core = { path = "../core" }
+chris-transport-ipc = { path = "../transport-ipc" }

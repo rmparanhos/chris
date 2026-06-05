@@ -1,0 +1,262 @@
+/* Fully transparent background: in Tauri the window is transparent, so only the
+   blob appears floating on the screen. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  /* prevent accidental text selection/drag */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#stage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+#blob {
+  width: 150px;
+  height: 150px;
+  position: relative;
+  cursor: move;
+  /* bob (gently moves up and down) */
+  animation: bob 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));
+}
+
+/* all sprites occupy the same space; only the active one is shown */
+.sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* hide every character, then show only the active one */
+#sprite-cat,
+#sprite-photo {
+  display: none;
+}
+[data-sprite="cat"] #sprite-blob,
+[data-sprite="dog"] #sprite-blob {
+  display: none;
+}
+[data-sprite="cat"] #sprite-cat {
+  display: block;
+}
+[data-sprite="dog"] #sprite-photo {
+  display: block;
+}
+/* PNG characters are pixel art: keep the pixels crisp when scaled, don't blur */
+#sprite-photo {
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* photo characters can't recolor like the SVG, but they can still react with
+   motion (the expression itself is baked into each PNG) */
+[data-sprite="dog"][data-state="alert"] #sprite-photo {
+  animation: wobble 0.5s ease-in-out infinite;
+}
+[data-sprite="dog"][data-state="approved"] #sprite-photo {
+  animation: hop 0.6s ease;
+}
+[data-sprite="dog"][data-state="denied"] #sprite-photo {
+  animation: shake 0.5s ease;
+}
+[data-sprite="dog"][data-state="pr"] #sprite-photo {
+  animation: hop 0.7s ease;
+}
+
+/* cat details */
+.ear {
+  fill: #34cdd6; /* follows the body color when idle */
+  transition: fill 0.3s ease;
+}
+.ear-inner {
+  fill: #ffd1dc;
+}
+.cat-nose {
+  fill: #08343a;
+}
+.whiskers path {
+  fill: none;
+  stroke: #08343a;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* character picker */
+#picker {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#stage:hover #picker {
+  opacity: 1;
+}
+#picker button {
+  width: 30px;
+  height: 26px;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.35);
+}
+#picker button.active {
+  background: rgba(0, 0, 0, 0.6);
+  outline: 2px solid #fff;
+}
+
+/* the body breathes (scales) and changes color per state */
+.body {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: breathe 2.6s ease-in-out infinite;
+  transition: fill 0.3s ease;
+  fill: #34cdd6; /* idle: cyan */
+}
+
+.eye {
+  fill: #08343a;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blink 4.5s infinite;
+}
+
+.mouth {
+  fill: none;
+  stroke: #08343a;
+  stroke-width: 3;
+  stroke-linecap: round;
+  display: none; /* hidden; each state shows the right one */
+}
+.mouth.o {
+  fill: #08343a;
+  stroke: none;
+}
+
+.emote {
+  font: bold 26px system-ui, sans-serif;
+  fill: #ff8a3d;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* queue counter (e.g. "+2") */
+#badge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  min-width: 18px;
+  padding: 2px 6px;
+  border-radius: 11px;
+  background: #ff5a5a;
+  color: #fff;
+  font: bold 12px system-ui, sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- states ---------- */
+
+/* idle: neutral mouth */
+[data-state="idle"] .mouth.neutral {
+  display: block;
+}
+
+/* alert: orange, shivers, shows "!" and an "o" mouth */
+[data-state="alert"] .body {
+  fill: #ff9f43;
+  animation: wobble 0.5s ease-in-out infinite;
+}
+[data-state="alert"] .mouth.o {
+  display: block;
+}
+[data-state="alert"] .emote {
+  animation: pop 0.6s ease-in-out infinite alternate;
+}
+
+/* approved: green, little hop, smiles */
+[data-state="approved"] .body {
+  fill: #2ecc71;
+  animation: hop 0.6s ease;
+}
+[data-state="approved"] .mouth.smile {
+  display: block;
+}
+
+/* denied: coral, shakes its head, frowns */
+[data-state="denied"] .body {
+  fill: #ff6b6b;
+  animation: shake 0.5s ease;
+}
+[data-state="denied"] .mouth.frown {
+  display: block;
+}
+
+/* pr: blue, little hop, smiles (a Pull Request arrived) */
+[data-state="pr"] .body {
+  fill: #539bf5;
+  animation: hop 0.7s ease;
+}
+[data-state="pr"] .mouth.smile {
+  display: block;
+}
+
+/* the cat's ears follow the body color in each state */
+[data-state="alert"] .ear { fill: #ff9f43; }
+[data-state="approved"] .ear { fill: #2ecc71; }
+[data-state="denied"] .ear { fill: #ff6b6b; }
+[data-state="pr"] .ear { fill: #539bf5; }
+
+/* ---------- keyframes ---------- */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+@keyframes wobble {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes pop {
+  from { opacity: 0.4; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.25); }
+}
+@keyframes hop {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-18px); }
+  100% { transform: translateY(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+/* accessibility: respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHRIS — Pull Request</title>
+    <link rel="stylesheet" href="pr.css" />
+  </head>
+  <body>
+    <div id="card">
+      <header data-tauri-drag-region>
+        <span class="tag">PULL REQUEST</span>
+        <span id="repo" class="repo">owner/repo #0</span>
+      </header>
+
+      <div id="title" class="title">(PR title)</div>
+      <div id="author" class="author">by someone</div>
+
+      <footer>
+        <button id="dismiss" class="dismiss">Dismiss</button>
+        <button id="open" class="open">Open</button>
+        <button id="approve" class="approve">Approve</button>
+      </footer>
+      <div id="status" class="status"></div>
+    </div>
+
+    <script src="pr.js"></script>
+  </body>
+</html>
