@@ -58,17 +58,28 @@ body {
 }
 
 /* photo characters can't recolor like the SVG, but they can still react with
-   motion (the expression itself is baked into each PNG) */
+   motion AND a state-colored glow (drop-shadow), so the state is obvious at a
+   glance even when the dog is all black. The expression is baked into each PNG. */
+[data-sprite="dog"] #sprite-photo {
+  transition: filter 0.25s ease;
+}
+[data-sprite="dog"][data-state="idle"] #sprite-photo {
+  filter: drop-shadow(0 0 5px rgba(52, 205, 214, 0.7)); /* cyan */
+}
 [data-sprite="dog"][data-state="alert"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #ff9f43); /* orange */
   animation: wobble 0.5s ease-in-out infinite;
 }
 [data-sprite="dog"][data-state="approved"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #2ecc71); /* green */
   animation: hop 0.6s ease;
 }
 [data-sprite="dog"][data-state="denied"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #ff6b6b); /* coral */
   animation: shake 0.5s ease;
 }
 [data-sprite="dog"][data-state="pr"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #539bf5); /* blue */
   animation: hop 0.7s ease;
 }
 

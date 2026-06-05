@@ -10,37 +10,41 @@ expression**.
 ## Character: all-black guardian dog 🖤🐕
 
 A **solid jet-black dog / wolfdog** (German Shepherd–ish silhouette, pointed
-ears) with **big glowing eyes**. Stylized cartoon/anime — **not realistic** —
-chunky, a little chibi, bold and expressive. A subtle **rim light / outline**
-keeps the black silhouette visible on dark wallpapers. Easy to swap the breed
-later (same prompt, change the shape line).
+ears) with **big glowing eyes**. **Semi-realistic stylized anime** — a middle
+ground: detailed and noble, **not** chibi/over-cartoon, but **not** photoreal
+either. Balanced proportions. Easy to swap the breed later (same prompt, change
+the shape line).
 
-## Visual style: stylized 16-bit anime sprite (pixel art)
+## Visual style: semi-realistic stylized anime sprite (pixel art)
 
-Bold cartoon/anime sprite: crisp pixels, very limited palette (mostly black +
-the glowing eye color), clean outline, bold cel shading, **exaggerated** poses
-and faces. **Not** realistic, not 3D, not painterly. Readable and punchy at
-small size.
+Clean pixel-art sprite with **balanced, slightly realistic proportions** (not
+chibi, not photorealistic). Crisp pixels, clean outline, bold cel shading,
+expressive but believable. Punchy and readable at small size.
 
-## How the state is shown: glowing eyes + exaggerated reaction
+## How the state is shown: state-colored GLOW (eyes + rim light + aura)
 
-The **fur stays jet black** in every frame. What changes is the **eye glow
-color** (below) and the expression, which should be **over-the-top** — big
-surprise, huge grin, dramatic anger, etc. The app also adds motion per state
-(shake/hop/wobble), so lean into exaggerated poses.
+This is the important fix: changing only the eye color is **too subtle**. So the
+state color must dominate the whole sprite. The **fur stays jet black**, but in
+each frame the **eyes, a rim light around the whole body, and a soft glowing
+aura** all take the **state color** — so the state is **obvious at a glance**,
+even tiny. The expression also changes (clearly, but not cartoonishly).
 
-## The 5 states (eye glow color + exaggerated reaction)
+> The app reinforces this with a matching colored glow + motion per state, so
+> readability is guaranteed in-app regardless of how strong the art's glow is.
 
-| State      | Eye glow (hex)     | Exaggerated expression / pose                                  |
-|------------|--------------------|----------------------------------------------------------------|
-| `idle`     | `#34cdd6` cyan     | calm but alert, neutral, ears up, relaxed                      |
-| `alert`    | `#ff9f43` orange   | SHOCKED: eyes huge and wide, ears shot straight up, big `!`     |
-| `approved` | `#2ecc71` green    | OVERJOYED: huge grin, tongue out, tail wagging hard, sparkles   |
-| `denied`   | `#ff6b6b` coral    | FURIOUS: deep frown, bared teeth/growl, ears flattened back     |
-| `pr`       | `#539bf5` blue     | super curious dramatic head-tilt, big sparkling eyes           |
+## The 5 states (glow color + expression)
 
-Fur: jet black `#0e0e12`. Subtle rim/outline: dark grey `#3a3a44` (so it reads on
-dark backgrounds). The eyes are the main color and should **glow**.
+| State      | Glow color (hex)   | Expression / pose (clear, not over-the-top)               |
+|------------|--------------------|-----------------------------------------------------------|
+| `idle`     | `#34cdd6` cyan     | calm but alert, neutral, ears up                          |
+| `alert`    | `#ff9f43` orange   | startled, eyes wide, ears perked, a bold `!`             |
+| `approved` | `#2ecc71` green    | happy, open smile / tongue out, ears up, tail up         |
+| `denied`   | `#ff6b6b` coral    | stern/angry, frown with bared teeth, ears back           |
+| `pr`       | `#539bf5` blue     | curious head-tilt, bright attentive eyes                 |
+
+Fur: jet black `#0e0e12`. The **eyes + rim light + aura glow the state color**
+(this is the main signal). Keep a subtle rim so the black shape stays visible on
+dark wallpapers.
 
 ## Output format (the important part)
 
@@ -58,28 +62,30 @@ dark backgrounds). The eyes are the main color and should **glow**.
 
 ## Paste-ready prompt (English works best in Leonardo)
 
-> 16-bit pixel art sprite, stylized cartoon anime style, NOT realistic, chunky
-> exaggerated proportions, cute but fierce all-black guardian dog / wolfdog
-> mascot, solid jet-black fur, pointed ears, big glowing eyes, subtle rim light
-> outline so it stays visible on dark backgrounds, front three-quarter view,
-> thick outline, very limited color palette, crisp clean pixels, bold cel
-> shading, centered, isolated on a transparent background, no background, no
-> drop shadow, game sprite asset.
+> 16-bit pixel art sprite, semi-realistic stylized anime style, balanced
+> proportions (not chibi, not photorealistic), fierce noble all-black guardian
+> dog / wolfdog mascot, solid jet-black fur, pointed ears, big glowing eyes, a
+> glowing colored rim light around the whole body and a soft matching aura,
+> front three-quarter view, clean outline, crisp clean pixels, bold cel shading,
+> centered, isolated on a transparent background, no background, no drop shadow,
+> game sprite asset.
 >
 > Same black dog in 5 variants, identical body pose / size / position, fur stays
-> jet black, only the GLOWING EYE color and the exaggerated expression change:
-> 1) calm and alert, neutral face, ears up, eyes glowing CYAN #34cdd6;
-> 2) shocked and startled, eyes huge and wide, ears shot straight up, a big bold exclamation mark, eyes glowing ORANGE #ff9f43;
-> 3) overjoyed, huge open grin with tongue out, tail wagging hard, little sparkles, eyes glowing GREEN #2ecc71;
-> 4) furious and stern, deep frown with bared teeth, ears flattened back, eyes glowing CORAL RED #ff6b6b;
-> 5) super curious with a dramatic head tilt and big sparkling eyes, eyes glowing BLUE #539bf5.
+> jet black; in each variant the EYES, the RIM LIGHT around the body and the
+> AURA all GLOW the state color, and the expression changes — make each state
+> obvious at a glance:
+> 1) idle — calm and alert, neutral face, ears up; glow CYAN #34cdd6;
+> 2) alert — startled, eyes wide, ears perked, a bold exclamation mark; glow ORANGE #ff9f43;
+> 3) approved — happy, open smile with tongue out, ears up, tail up; glow GREEN #2ecc71;
+> 4) denied — stern and angry, frown with bared teeth, ears back; glow RED #ff6b6b;
+> 5) pr — curious head tilt, bright attentive eyes; glow BLUE #539bf5.
 
 **Negative prompt** (paste in the negative field):
 
-> realistic, photorealistic, detailed realistic fur, 3d render, photo, smooth
-> gradients, blurry, antialiased, soft focus, brown fur, colored fur, white fur,
-> extra limbs, deformed, text, watermark, jpeg artifacts, background, drop
-> shadow, low contrast
+> chibi, super deformed, overly cartoonish, photorealistic, realistic photo, 3d
+> render, smooth gradients, blurry, antialiased, soft focus, brown fur, colored
+> fur, white fur, extra limbs, deformed, text, watermark, jpeg artifacts,
+> background, drop shadow, low contrast, dull colors, no glow
 
 **Breed swap:** replace "all-black guardian dog / wolfdog, ... pointed ears" with
 another all-black dog shape if you want (e.g. "all-black hound with long floppy
