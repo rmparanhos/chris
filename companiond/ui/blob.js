@@ -15,7 +15,7 @@ const STATES = ["idle", "alert", "approved", "denied", "pr"];
 
 // Characters drawn from PNG files (one image per state), keyed by sprite name
 // -> folder under ui/. The blob/cat are inline SVG and not listed here.
-const PHOTO_SPRITES = { dog: "sprites/dog" };
+const PHOTO_SPRITES = { dog: "sprites/dog", luckycat: "sprites/luckycat" };
 
 /** Points the <img> at the PNG for the current sprite + state. No-op for the
  *  SVG characters (blob/cat). */
@@ -23,9 +23,9 @@ function updatePhoto() {
   const dir = PHOTO_SPRITES[stage.dataset.sprite];
   if (!dir) return;
   const state = stage.dataset.state || "idle";
-  // If the Rive dog is available, drive it and let it draw (it replaces the
-  // PNG). We still set the PNG below while Rive is loading / if it's absent.
-  if (window.dogRive) {
+  // For the dog, if the Rive version is available, drive it and let it draw (it
+  // replaces the PNG). We still set the PNG below while Rive is loading / absent.
+  if (stage.dataset.sprite === "dog" && window.dogRive) {
     window.dogRive.setState(window.dogRive.indexOf(state));
     if (window.dogRive.isActive()) return;
   }
@@ -61,7 +61,7 @@ function setBlobState(state, count = 0) {
 window.setBlobState = setBlobState;
 
 // ---------- character (sprite) picker ----------
-const SPRITES = ["blob", "cat", "dog"];
+const SPRITES = ["blob", "cat", "dog", "luckycat"];
 
 function setSprite(name) {
   if (!SPRITES.includes(name)) return;

@@ -42,13 +42,15 @@ body {
   display: none;
 }
 [data-sprite="cat"] #sprite-blob,
-[data-sprite="dog"] #sprite-blob {
+[data-sprite="dog"] #sprite-blob,
+[data-sprite="luckycat"] #sprite-blob {
   display: none;
 }
 [data-sprite="cat"] #sprite-cat {
   display: block;
 }
-[data-sprite="dog"] #sprite-photo {
+[data-sprite="dog"] #sprite-photo,
+[data-sprite="luckycat"] #sprite-photo {
   display: block;
 }
 /* PNG characters are pixel art: keep the pixels crisp when scaled, don't blur */
@@ -92,6 +94,32 @@ body {
 }
 [data-sprite="dog"][data-dog-rive="on"] #sprite-photo {
   display: none;
+}
+
+/* lucky cat (maneki-neko) photo sprite: per-state colored glow + reactions.
+   Keeps the gentle bob (it's cute on a waving lucky cat), so no breathing hack
+   is needed here. The expression/eye/collar color is baked into each PNG. */
+[data-sprite="luckycat"] #sprite-photo {
+  transition: filter 0.25s ease;
+}
+[data-sprite="luckycat"][data-state="idle"] #sprite-photo {
+  filter: drop-shadow(0 0 5px rgba(52, 205, 214, 0.7)); /* cyan */
+}
+[data-sprite="luckycat"][data-state="alert"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #ff9f43); /* orange */
+  animation: wobble 0.5s ease-in-out infinite;
+}
+[data-sprite="luckycat"][data-state="approved"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #2ecc71); /* green */
+  animation: hop 0.6s ease;
+}
+[data-sprite="luckycat"][data-state="denied"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #ff6b6b); /* coral */
+  animation: shake 0.5s ease;
+}
+[data-sprite="luckycat"][data-state="pr"] #sprite-photo {
+  filter: drop-shadow(0 0 11px #539bf5); /* blue */
+  animation: hop 0.7s ease;
 }
 [data-sprite="dog"][data-state="idle"] #sprite-photo {
   filter: drop-shadow(0 0 5px rgba(52, 205, 214, 0.7)); /* cyan */
