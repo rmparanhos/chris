@@ -43,6 +43,18 @@ fn decide(state: State<AppState>, id: u32, allow: bool) {
     }
 }
 
+/// Sends "Defer" for the current request: CHRIS steps aside so the agent's own
+/// native prompt takes over (the popup's "Terminal" button). The request stays
+/// open in the CLI.
+#[tauri::command]
+fn defer(state: State<AppState>, id: u32) {
+    if let Some((cur_id, tx)) = state.current.lock().unwrap().as_ref() {
+        if *cur_id == id {
+            let _ = tx.send(Decision::Defer);
+        }
+    }
+}
+
 /// Opens a URL in the default browser (called by the PR popup's "Open" button).
 #[tauri::command]
 fn open_url(url: String) {
@@ -103,7 +115,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![decide, open_url, approve_pr, hide_pr])
+        .invoke_handler(tauri::generate_handler![decide, defer, open_url, approve_pr, hide_pr])
         .setup(|app| {
             setup_tray(app.handle())?;
 
@@ -158,6 +170,16 @@ fn pr_loop(app: AppHandle) {
 
     loop {
         if let Ok(prs) = chris_github::fetch_review_requests(&token) {
+            // simple counts shown above the companion: PRs awaiting your review
+            // and your own open PRs.
+            let review = prs.len() as u64;
+            let open = chris_github::fetch_open_authored_count(&token).unwrap_or(0);
+            let _ = app.emit_to(
+                "blob",
+                "pr-counts",
+                serde_json::json!({ "open": open, "review": review }),
+            );
+
             let fresh = chris_github::only_new(&seen, &prs);
             for p in &prs {
                 seen.insert(p.id);
@@ -274,10 +296,12 @@ fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decisio
             "risk": format!("{:?}", req.risk).to_lowercase(),
         }),
     );
-    // place it next to the blob and show it WITHOUT stealing focus
+    // place it next to the blob, show it and focus it so it's easy to act on
+    // (click or keyboard: Enter = allow, Esc = deny)
     position_near_blob(app, "popup");
     if let Some(win) = app.get_webview_window("popup") {
         let _ = win.show();
+        let _ = win.set_focus();
     }
 
     // register the decision channel and wait
@@ -294,10 +318,12 @@ fn handle_request(app: &AppHandle, req: &chris_core::ApprovalRequest) -> Decisio
         *state.current.lock().unwrap() = None;
     }
 
-    // visual feedback, then close the popup
+    // visual feedback, then close the popup. Defer = CHRIS stepped aside, so no
+    // approved/denied flash — just go back to idle.
     let visual = match decision {
         Decision::Allow => "approved",
-        _ => "denied",
+        Decision::Deny => "denied",
+        Decision::Defer => "idle",
     };
     let _ = app.emit_to("blob", "blob-state", serde_json::json!({"state":visual,"count":0}));
     if let Some(win) = app.get_webview_window("popup") {

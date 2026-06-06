@@ -36,6 +36,8 @@ pub enum GhError {
 #[derive(Deserialize)]
 struct SearchResponse {
     #[serde(default)]
+    total_count: u64,
+    #[serde(default)]
     items: Vec<SearchItem>,
 }
 #[derive(Deserialize)]
@@ -75,6 +77,13 @@ pub fn parse_search(json: &str) -> Result<Vec<PrItem>, GhError> {
             }
         })
         .collect())
+}
+
+/// Reads just the `total_count` from a `/search/issues` response. (Pure/testable.)
+pub fn parse_count(json: &str) -> Result<u64, GhError> {
+    let resp: SearchResponse =
+        serde_json::from_str(json).map_err(|e| GhError::Parse(e.to_string()))?;
+    Ok(resp.total_count)
 }
 
 /// Extracts (owner, repo) from a URL like `https://github.com/owner/repo/pull/5`.
@@ -126,22 +135,28 @@ pub fn discover_token() -> Option<String> {
     None
 }
 
-/// Fetches PRs that request your review (needs network + token).
-pub fn fetch_review_requests(token: &str) -> Result<Vec<PrItem>, GhError> {
-    let url = format!(
-        "{API}/search/issues?q={}",
-        urlencode("is:open is:pr review-requested:@me")
-    );
+/// Runs a `/search/issues` query and returns the raw JSON body. (Network.)
+fn search_body(token: &str, q: &str) -> Result<String, GhError> {
+    let url = format!("{API}/search/issues?q={}", urlencode(q));
     let resp = ureq::get(&url)
         .set("Authorization", &format!("Bearer {token}"))
         .set("Accept", "application/vnd.github+json")
         .set("User-Agent", UA)
         .call()
         .map_err(|e| GhError::Http(e.to_string()))?;
-    let body = resp
-        .into_string()
-        .map_err(|e| GhError::Http(e.to_string()))?;
+    resp.into_string().map_err(|e| GhError::Http(e.to_string()))
+}
+
+/// Fetches PRs that request your review (needs network + token).
+pub fn fetch_review_requests(token: &str) -> Result<Vec<PrItem>, GhError> {
+    let body = search_body(token, "is:open is:pr review-requested:@me")?;
     parse_search(&body)
+}
+
+/// Counts the open pull requests you authored (needs network + token).
+pub fn fetch_open_authored_count(token: &str) -> Result<u64, GhError> {
+    let body = search_body(token, "is:open is:pr author:@me")?;
+    parse_count(&body)
 }
 
 /// Approves a PR (submits an APPROVE review). Needs network + token.
@@ -198,6 +213,12 @@ mod tests {
         assert_eq!(p.number, 42);
         assert_eq!(p.title, "Corrige o parser");
         assert_eq!(p.author, "alice");
+    }
+
+    #[test]
+    fn parse_count_reads_total() {
+        assert_eq!(parse_count(SAMPLE).unwrap(), 1);
+        assert_eq!(parse_count(r#"{"total_count":7,"items":[]}"#).unwrap(), 7);
     }
 
     #[test]

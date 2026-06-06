@@ -1,28 +1,44 @@
 name: Release
 
-# Publica o instalador do Windows ao empurrar uma tag tipo v0.1.0
-# (ou rodando manualmente em Actions -> Release -> Run workflow).
+# Publishes the Windows and macOS installers when a tag like v0.1.0 is pushed
+# (or by running it manually in Actions -> Release -> Run workflow).
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Tag/versao a publicar (ex.: v0.1.0)"
+        description: "Tag/version to publish (e.g. v0.1.0)"
         required: true
         default: "v0.1.0"
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  release:
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows: .msi + .exe (NSIS)
+          - platform: windows-latest
+            args: ""
+            rust-targets: ""
+          # macOS: universal .dmg/.app (runs on Intel and Apple Silicon)
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+            rust-targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build + bundle + publicar release
+      - name: Build + bundle + publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,6 +46,7 @@ jobs:
           projectPath: companiond
           tagName: ${{ github.event.inputs.version || github.ref_name }}
           releaseName: "CHRIS ${{ github.event.inputs.version || github.ref_name }}"
-          releaseBody: "Instalador do CHRIS para Windows — baixe o .msi ou o .exe (NSIS) abaixo."
+          releaseBody: "CHRIS installers — Windows (.msi / .exe NSIS) and macOS (.dmg). The macOS build is unsigned, so on first launch right-click the app → Open (or allow it in System Settings → Privacy & Security)."
           releaseDraft: false
           prerelease: false
+          args: ${{ matrix.args }}

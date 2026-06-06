@@ -9,8 +9,37 @@
 const stage = document.getElementById("stage");
 const badge = document.getElementById("badge");
 const blob = document.getElementById("blob");
+const photo = document.getElementById("sprite-photo");
 
 const STATES = ["idle", "alert", "approved", "denied", "pr"];
+
+// Characters drawn from PNG files (one image per state), keyed by sprite name
+// -> folder under ui/. The blob/cat are inline SVG and not listed here.
+const PHOTO_SPRITES = { dog: "sprites/dog", luckycat: "sprites/luckycat" };
+
+/** Points the <img> at the PNG for the current sprite + state. No-op for the
+ *  SVG characters (blob/cat). */
+function updatePhoto() {
+  const dir = PHOTO_SPRITES[stage.dataset.sprite];
+  if (!dir) return;
+  const state = stage.dataset.state || "idle";
+  // For the dog, if the Rive version is available, drive it and let it draw (it
+  // replaces the PNG). We still set the PNG below while Rive is loading / absent.
+  if (stage.dataset.sprite === "dog" && window.dogRive) {
+    window.dogRive.setState(window.dogRive.indexOf(state));
+    if (window.dogRive.isActive()) return;
+  }
+  photo.src = `${dir}/${state}.png`;
+}
+
+// If a PNG isn't there yet, fall back to the blob placeholder so we never show
+// a broken image. (Remove the art, get the blob; drop the art in, get the dog.)
+photo.addEventListener("error", () => {
+  if (stage.dataset.sprite in PHOTO_SPRITES) {
+    console.warn("CHRIS: sprite image missing, falling back to blob:", photo.src);
+    setSprite("blob");
+  }
+});
 
 /** Changes the companion's visual state. Driven by the backend at runtime.
  *  @param {string} state  idle | alert | approved | denied | pr
@@ -19,6 +48,7 @@ const STATES = ["idle", "alert", "approved", "denied", "pr"];
 function setBlobState(state, count = 0) {
   if (!STATES.includes(state)) return;
   stage.dataset.state = state;
+  updatePhoto();
   if (count > 0) {
     badge.textContent = "+" + count;
     badge.hidden = false;
@@ -31,14 +61,17 @@ function setBlobState(state, count = 0) {
 window.setBlobState = setBlobState;
 
 // ---------- character (sprite) picker ----------
-const SPRITES = ["blob", "cat"];
+const SPRITES = ["blob", "cat", "dog", "luckycat"];
 
 function setSprite(name) {
   if (!SPRITES.includes(name)) return;
   stage.dataset.sprite = name;
+  // first time the dog is chosen, try to bring up the Rive version
+  if (name === "dog" && window.dogRive) window.dogRive.ensure();
   document.querySelectorAll("#picker button").forEach((b) => {
     b.classList.toggle("active", b.dataset.sprite === name);
   });
+  updatePhoto();
   try {
     localStorage.setItem("chris.sprite", name);
   } catch (_) {}
@@ -54,12 +87,36 @@ document.querySelectorAll("#picker button").forEach((b) => {
   });
 });
 
+// ---------- PR notification counts (above the companion) ----------
+const prcount = document.getElementById("prcount");
+function setPrCounts(open, review) {
+  document.getElementById("pr-open").textContent = open;
+  document.getElementById("pr-review").textContent = review;
+  // show the pill only when there is something worth showing
+  prcount.hidden = open + review <= 0;
+}
+
 // Inside the app: the daemon drives the blob via the "blob-state" event.
 const tauri = window.__TAURI__;
 if (tauri) {
   tauri.event.listen("blob-state", (e) => {
     const { state, count } = e.payload || {};
     setBlobState(state, count || 0);
+  });
+
+  tauri.event.listen("pr-counts", (e) => {
+    const { open, review } = e.payload || {};
+    setPrCounts(open || 0, review || 0);
+  });
+
+  // Drag the whole companion window by grabbing the character anywhere (not
+  // just the empty edges). The picker buttons are excluded so they stay
+  // clickable. Uses the OS-level drag for smoothness.
+  const appWin = tauri.window && tauri.window.getCurrentWindow && tauri.window.getCurrentWindow();
+  stage.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return; // left button only
+    if (e.target.closest("#picker")) return; // let the picker work
+    if (appWin) appWin.startDragging().catch(() => {});
   });
 } else {
   // --- browser demo mode (no Tauri) ---

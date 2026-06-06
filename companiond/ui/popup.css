@@ -81,8 +81,8 @@ header {
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
   font-size: 13px;
   white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 74px;
+  word-break: break-word;
+  max-height: 190px;
   overflow: auto;
 }
 
@@ -108,6 +108,18 @@ button {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+}
+/* "Terminal" (defer) — subtle, secondary; narrower than the main actions */
+.defer {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  background: transparent;
+  color: #aab4c4;
+  border: 1px solid #38404f;
+}
+.defer:hover {
+  background: #2a2f3a;
+  color: #e8ecf3;
 }
 .deny {
   background: #38404f;

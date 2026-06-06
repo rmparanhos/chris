@@ -8,10 +8,19 @@
   </head>
   <body>
     <!-- data-state controls the appearance: idle | alert | approved | denied | pr
-         data-sprite picks the character: blob | cat
-         data-tauri-drag-region: lets you drag the companion around the screen -->
-    <div id="stage" data-state="idle" data-sprite="blob" data-tauri-drag-region>
+         data-sprite picks the character: blob | cat | dog
+         Dragging is handled in blob.js (startDragging on mousedown), so it works
+         when you grab the character itself, not just the empty edges. -->
+    <div id="stage" data-state="idle" data-sprite="blob">
       <div id="badge" hidden>+0</div>
+
+      <!-- simple PR notification above the companion: your open PRs · reviews
+           requested of you. Hidden until there is something to show. -->
+      <div id="prcount" hidden>
+        <span title="Open pull requests you authored"><b id="pr-open">0</b> open</span>
+        <span class="dot">·</span>
+        <span title="Pull requests that requested your review"><b id="pr-review">0</b> review</span>
+      </div>
 
       <div id="blob" title="Click to preview the states">
         <!-- ===== Sprite 1: Blob ===== -->
@@ -63,15 +72,30 @@
 
           <text class="emote" x="80" y="28">!</text>
         </svg>
+
+        <!-- ===== Image-based character (PNG, one file per state) =====
+             Used by photo sprites like "dog". If the files aren't present yet,
+             blob.js falls back to the blob SVG above. -->
+        <img id="sprite-photo" class="sprite" alt="" />
+
+        <!-- ===== Rive-powered dog (optional) =====
+             If sprites/dog/dog.riv exists, dog-rive.js renders the dog here with
+             real chest breathing + per-state reactions and hides the PNG above.
+             Missing .riv -> this stays blank and the PNGs are used. -->
+        <canvas id="dog-rive" class="sprite"></canvas>
       </div>
 
       <!-- character picker (appears on hover) -->
       <div id="picker" data-tauri-drag-region="false">
         <button type="button" data-sprite="blob" class="active" title="Blob">🫧</button>
         <button type="button" data-sprite="cat" title="Cat">🐱</button>
+        <button type="button" data-sprite="dog" title="Dog">🐶</button>
+        <button type="button" data-sprite="luckycat" title="Lucky cat">😺</button>
       </div>
     </div>
 
+    <script src="vendor/rive.js"></script>
+    <script src="dog-rive.js"></script>
     <script src="blob.js"></script>
   </body>
 </html>

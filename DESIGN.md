@@ -1,238 +1,241 @@
 # CHRIS — Design
 
 > **CHRIS** = **C**oding-agent **H**ook **R**eview **I**nteractive **S**idekick.
-> O companion agnóstico a agente, baseado em hooks, que reage a aprovações.
+> The agent-agnostic, hook-based companion that reacts to approvals.
 
-## 1. Conceito
+## 1. Concept
 
-Um **companion desktop** (Rust + Tauri, cross-platform) que **reage e intermedia
-aprovações** de agentes de codificação. Quando um agente (Copilot CLI, Claude
-Code, Codex, …) precisa de aprovação do usuário para executar uma ferramenta, o
-companion — um **blob animado** — reage e o usuário aprova/nega por ele, sem
-precisar voltar ao terminal.
+A **desktop companion** (Rust + Tauri, cross-platform) that **reacts to and
+mediates approvals** from coding agents. When an agent (Copilot CLI, Claude
+Code, Codex, …) needs the user's approval to run a tool, the companion — an
+**animated blob** — reacts, and the user approves/denies through it, without
+having to go back to the terminal.
 
-O companion é **agnóstico ao agente**: a integração se dá por **hooks**
-(mecanismo estável e estruturado), não por interceptação de terminal (PTY) nem
-por servidor MCP.
+The companion is **agent-agnostic**: integration happens through **hooks** (a
+stable, structured mechanism), not through terminal interception (PTY) nor
+through an MCP server.
 
-**Visão de futuro (alvo concreto):** o "corpo" do companion pode migrar para um
-**buddy físico em ESP32** — uma telinha com o sprite + botões físicos de
-Approve/Deny na mesa. Por isso o **cérebro** é desenhado portável (`no_std`)
-desde o início.
+**Future vision (concrete target):** the companion's "body" can migrate to a
+**physical buddy on ESP32** — a little screen with the sprite + physical
+Approve/Deny buttons on your desk. That's why the **brain** is designed to be
+portable (`no_std`) from the start.
 
-## 2. Por que hooks (e não PTY ou MCP)
+## 2. Why hooks (and not PTY or MCP)
 
-| Mecanismo | Veredito | Motivo |
+| Mechanism | Verdict | Reason |
 |-----------|----------|--------|
-| **Hooks** | ✅ escolhido | Payload estruturado, decisão de volta limpa, síncrono. Convergente: os 3 agentes têm `PreToolUse`. |
-| PTY wrapper | ❌ | Frágil (parsear TUI/ANSI), intrusivo (fica no meio do terminal). |
-| MCP permission tool | ❌ | Depende de o agente delegar permissão via MCP; menos universal que hooks. |
+| **Hooks** | ✅ chosen | Structured payload, clean decision sent back, synchronous. Convergent: all 3 agents have `PreToolUse`. |
+| PTY wrapper | ❌ | Fragile (parsing TUI/ANSI), intrusive (sits in the middle of the terminal). |
+| MCP permission tool | ❌ | Depends on the agent delegating permission via MCP; less universal than hooks. |
 
-### Suporte por agente (verificado)
+### Support per agent (verified)
 
-| Agente | Evento de aprovação | Como devolve a decisão | Onde configura |
+| Agent | Approval event | How it returns the decision | Where it's configured |
 |--------|--------------------|------------------------|----------------|
-| **Copilot CLI** (MVP) | `preToolUse` (payload snake_case: `tool_name`, `tool_input`) | retornar `deny` bloqueia; síncrono — a sessão espera o hook | `.github/hooks/NAME.json` |
-| **Claude Code** | `PreToolUse` | JSON em stdout com `permissionDecision: allow/deny/ask` (ou exit 2) | `.claude/settings.json` |
-| **Codex CLI** | `PreToolUse` / `PermissionRequest` | resposta do hook + `/hooks` para confiar | config em `~/.codex` |
+| **Copilot CLI** (MVP) | `preToolUse` (snake_case payload: `tool_name`, `tool_input`) | returning `deny` blocks; synchronous — the session waits for the hook | `.github/hooks/NAME.json` |
+| **Claude Code** | `PreToolUse` | JSON on stdout with `permissionDecision: allow/deny/ask` (or exit 2) | `.claude/settings.json` |
+| **Codex CLI** | `PreToolUse` / `PermissionRequest` | hook response + `/hooks` to trust | config in `~/.codex` |
 
-Os três também expõem eventos **não-bloqueantes** ("agente terminou / precisa de
-atenção": `agentStop`, `Stop`/`Notification`, `notify`) — usados para o blob
-reagir fora de uma aprovação. (Fase 2.)
+All three also expose **non-blocking** events ("agent finished / needs
+attention": `agentStop`, `Stop`/`Notification`, `notify`) — used for the blob to
+react outside of an approval. (Phase 2.)
 
-## 3. Arquitetura
+## 3. Architecture
 
-Separação rígida entre **cérebro** (lógica pura, portável) e **corpo** (I/O,
-apresentação).
+A strict separation between **brain** (pure logic, portable) and **body** (I/O,
+presentation).
 
 ```
-        PC (sempre presente)                          Corpo (escolha)
+        PC (always present)                           Body (choice)
 ┌─────────────────────────────────┐
-│ hook + adapters + CORE + bridge │ ──transport──▶  ┌─ Tauri blob (tela do PC)   [MVP]
-│  (intercepta o agente, decide)  │  ◀──decisão──   └─ ESP32 buddy (tela+botões)  [futuro]
+│ hook + adapters + CORE + bridge │ ──transport──▶  ┌─ Tauri blob (PC screen)     [MVP]
+│  (intercepts the agent, decides)│  ◀──decision──  └─ ESP32 buddy (screen+buttons)[future]
 └─────────────────────────────────┘
 ```
 
-O ESP32 **não intercepta** o agente (o agente roda no PC) — ele é puramente um
-**corpo remoto**: apresentação + input de aprovação. Sempre existe uma peça no PC.
+The ESP32 **does not intercept** the agent (the agent runs on the PC) — it is
+purely a **remote body**: presentation + approval input. There is always a piece
+on the PC.
 
-### Fluxo de uma aprovação
+### Flow of an approval
 
 ```
-agente (copilot) dispara preToolUse
-        │  (passa payload JSON no stdin, e ESPERA)
+agent (copilot) fires preToolUse
+        │  (passes JSON payload on stdin, and WAITS)
         ▼
 ┌──────────────────┐   named pipe (ACL)   ┌────────────────────┐
 │ companion-hook   │ ──ApprovalRequest──▶ │   companiond        │
-│ (binário curto)  │ ◀──Decision──────────│ (Tauri: blob,       │
-│ normaliza→core   │                      │  popup, tray, estado)│
+│ (short binary)   │ ◀──Decision──────────│ (Tauri: blob,       │
+│ normalizes→core  │                      │  popup, tray, state) │
 └────────┬─────────┘                      └────────────────────┘
-         │ escreve a decisão no formato do agente (stdout / exit code)
+         │ writes the decision in the agent's format (stdout / exit code)
          ▼
-   agente segue ou bloqueia
+   agent proceeds or blocks
 ```
 
-### Componentes
+### Components
 
-- **`companiond`** — daemon = app Tauri. Vive na tray, dono do blob, do popup e
-  do estado. Autostart (registro `Run` no Windows). É também o *host* do
-  transport e o *bridge* para o corpo.
-- **`companion-hook`** — binário curto chamado no `PreToolUse`. Lê o payload,
-  normaliza via adapter, fala com o daemon por named pipe, devolve a decisão no
-  formato do agente. (`companion-hook.exe` no Windows; sem extensão em Unix.)
-- **`companion install`** — escreve a config de hook de cada agente apontando
-  para o `companion-hook`, e configura o timeout do agente alto o suficiente.
+- **`companiond`** — daemon = Tauri app. Lives in the tray, owner of the blob,
+  the popup and the state. Autostart (`Run` registry key on Windows). It is also
+  the *host* of the transport and the *bridge* to the body.
+- **`companion-hook`** — short binary called on `PreToolUse`. Reads the payload,
+  normalizes it via an adapter, talks to the daemon over a named pipe, returns
+  the decision in the agent's format. (`companion-hook.exe` on Windows; no
+  extension on Unix.)
+- **`companion install`** — writes each agent's hook config pointing to
+  `companion-hook`, and sets the agent's timeout high enough.
 
-## 4. Camadas / workspace
+## 4. Layers / workspace
 
 ```
 ├── Cargo.toml                 # workspace
 ├── crates/
-│   ├── core/        # #![no_std] + alloc. Tipos, protocolo (postcard), risco,
-│   │                #   state machine, traits Transport e Presentation.
-│   │                #   ZERO I/O, ZERO async. Compila no PC e no ESP32.
-│   ├── adapters/    # std. Parseia payload dos agentes (serde_json) → core. Lado PC.
+│   ├── core/        # #![no_std] + alloc. Types, protocol (postcard), risk,
+│   │                #   state machine, Transport and Presentation traits.
+│   │                #   ZERO I/O, ZERO async. Compiles on the PC and the ESP32.
+│   ├── adapters/    # std. Parses the agents' payload (serde_json) → core. PC side.
 │   ├── transport-ipc/ # std. named pipe (desktop).
-│   └── hook/        # std bin. companion-hook + subcomando install.
-├── companiond/      # std. Tauri = presentation desktop + bridge + host do transport.
-└── firmware/        # #![no_std] bin. ESP32 (esp-hal). Target xtensa/riscv, build separado.
+│   └── hook/        # std bin. companion-hook + install subcommand.
+├── companiond/      # std. Tauri = desktop presentation + bridge + transport host.
+└── firmware/        # #![no_std] bin. ESP32 (esp-hal). Target xtensa/riscv, separate build.
 ```
 
-**Regra de ouro:** toda lógica pura mora no `core` `no_std`; todo I/O (Tauri,
-Tokio, named pipe, serde_json, Wi-Fi/BLE) fica nas bordas. Desktop e ESP32
-compartilham o mesmo cérebro; só trocam de corpo.
+**Golden rule:** all pure logic lives in the `no_std` `core`; all I/O (Tauri,
+Tokio, named pipe, serde_json, Wi-Fi/BLE) sits at the edges. Desktop and ESP32
+share the same brain; they only swap bodies.
 
-### Traits centrais (esboço)
+### Central traits (sketch)
 
 ```rust
 // core (no_std + alloc)
 pub enum Decision { Allow, Deny, Defer }
 
-pub trait Transport {            // named pipe no PC; Wi-Fi/BLE/serial no ESP32
+pub trait Transport {            // named pipe on the PC; Wi-Fi/BLE/serial on the ESP32
     fn send(&mut self, msg: &Msg) -> Result<(), Error>;
     fn recv(&mut self) -> Result<Option<Msg>, Error>;
 }
 
-pub trait Presentation {         // webview no PC; display + GPIO no ESP32
+pub trait Presentation {         // webview on the PC; display + GPIO on the ESP32
     fn react(&mut self, state: BlobState);
     fn show(&mut self, req: &ApprovalRequest);
     fn poll_input(&mut self) -> Option<Decision>;
 }
 ```
 
-### Protocolo (wire)
+### Protocol (wire)
 
-- **`Msg` serializado em `postcard`** (binário, no_std, compacto) — leve para o
-  MCU. **JSON só existe no `adapters`**, no lado PC (parse do payload do agente).
-- **Byte de versão** no início do `Msg`: firmware (ESP32) e daemon atualizam em
-  ritmos diferentes — o skew de versão precisa ser detectável.
+- **`Msg` serialized with `postcard`** (binary, no_std, compact) — lightweight
+  for the MCU. **JSON only exists in `adapters`**, on the PC side (parsing the
+  agent's payload).
+- **Version byte** at the start of `Msg`: firmware (ESP32) and daemon update at
+  different paces — the version skew needs to be detectable.
 
-Esboço de mensagens:
+Message sketch:
 ```
 hook → daemon:  ApprovalRequest { id, agent, tool, summary, detail, cwd, risk }
 daemon → hook:  Decision { id, decision: Allow|Deny|Defer, reason }
 ```
 
-### Disciplina `no_std` no `core`
+### `no_std` discipline in `core`
 
-- `no_std + alloc` (ambos os alvos têm allocator — evita a dor do `heapless` puro).
-- Sem `anyhow`/`thiserror` (std) → erros são enums simples.
-- Sem `std::time` → timestamp entra como parâmetro.
-- `uuid` em modo no_std, ou `ReqId(u32)` simples.
-- Sem Tokio/async no core.
+- `no_std + alloc` (both targets have an allocator — avoids the pain of pure `heapless`).
+- No `anyhow`/`thiserror` (std) → errors are simple enums.
+- No `std::time` → timestamp comes in as a parameter.
+- `uuid` in no_std mode, or a simple `ReqId(u32)`.
+- No Tokio/async in the core.
 
-## 5. Política de decisão
+## 5. Decision policy
 
-| Situação | Decisão | Racional |
+| Situation | Decision | Rationale |
 |----------|---------|----------|
-| Usuário clica **Allow** / **Deny** | conforme o clique | — |
-| **Timeout** (usuário viu e não respondeu) | **Deny** | fail-safe. Nosso timeout < timeout do agente, para o hook responder antes de o agente desistir e ignorar. |
-| Fechar popup / clicar fora | sem-decisão → **Deny** no timeout | — |
-| **Daemon ausente** (ninguém viu) | **Defer** → agente usa o prompt nativo | nunca trava nem desprotege; só perde o blob naquele momento. Claude=`ask`, Codex=nativo, Copilot=fluxo próprio. |
+| User clicks **Allow** / **Deny** | as clicked | — |
+| **Timeout** (user saw it and didn't respond) | **Deny** | fail-safe. Our timeout < the agent's timeout, so the hook responds before the agent gives up and ignores it. |
+| Close the popup / click outside | no-decision → **Deny** on timeout | — |
+| **Daemon absent** (nobody saw it) | **Defer** → agent uses its native prompt | never blocks nor leaves you unprotected; you just lose the blob in that moment. Claude=`ask`, Codex=native, Copilot=its own flow. |
 
-> **Distinção importante:** *timeout* (você viu e não agiu) = **Deny**;
-> *daemon ausente* (ninguém viu) = **Defer**.
+> **Important distinction:** *timeout* (you saw it and didn't act) = **Deny**;
+> *daemon absent* (nobody saw it) = **Defer**.
 
-### Concorrência
+### Concurrency
 
-Vários agentes/terminais podem pedir ao mesmo tempo → **fila um-por-vez** com
-contador no blob ("+2"). Pilha de cards fica para depois.
+Several agents/terminals can ask at the same time → **one-at-a-time queue** with
+a counter on the blob ("+2"). A stack of cards is left for later.
 
-### Risco (heurística — default, pendente de refino)
+### Risk (heuristic — default, pending refinement)
 
-- `high`: `rm`/`del`, `sudo`, `curl … | sh`, acesso de rede, escrita fora do cwd.
-- `med` / `low`: demais; leitura pura = `low`.
+- `high`: `rm`/`del`, `sudo`, `curl … | sh`, network access, writes outside the cwd.
+- `med` / `low`: everything else; pure reads = `low`.
 
-## 6. Especificidades de plataforma (Windows primeiro)
+## 6. Platform specifics (Windows first)
 
-- **IPC:** named pipe `\\.\pipe\chris` com ACL — só o usuário corrente. Importante:
-  quem fala com o daemon pode autorizar execução de código.
-- **Janela do blob:** `transparent + decorations:false + alwaysOnTop + skipTaskbar`
-  e **click-through** (`set_ignore_cursor_events`); desligar a sombra da janela.
-- **Hook → executável:** configs apontam para `companion-hook.exe` com caminho
-  absoluto (escapando `\` no JSON).
-- **Autostart:** `Startup` / chave `Run` do registro (via `companion install`).
-- Cross-platform por construção: o mesmo código gera binários por SO; só o pouco
-  que é específico de SO fica isolado atrás de traits.
+- **IPC:** named pipe `\\.\pipe\chris` with an ACL — only the current user. Important:
+  whoever talks to the daemon can authorize code execution.
+- **Blob window:** `transparent + decorations:false + alwaysOnTop + skipTaskbar`
+  and **click-through** (`set_ignore_cursor_events`); turn off the window shadow.
+- **Hook → executable:** configs point to `companion-hook.exe` with an absolute
+  path (escaping `\` in the JSON).
+- **Autostart:** `Startup` / `Run` registry key (via `companion install`).
+- Cross-platform by construction: the same code produces binaries per OS; only
+  the little that is OS-specific is isolated behind traits.
 
-## 7. UX do blob
+## 7. Blob UX
 
-- **Popup ao lado:** o blob reage (`idle → alerta`) **e** abre sozinho um popup
-  ao lado mostrando comando, cwd, risco e botões `Allow`/`Deny` (imediato — o
-  agente está bloqueado esperando).
-- **Estados do blob:** `idle`, `alerta`, `aprovado`, `negado` (+ badge de contagem).
-- **Sprite:** placeholder **blob** animado (canvas/CSS leve). Personagem final a definir.
-- **Som:** default **off** no MVP (opcional depois).
+- **Side popup:** the blob reacts (`idle → alert`) **and** opens a popup by
+  itself on the side, showing the command, cwd, risk and `Allow`/`Deny` buttons
+  (immediate — the agent is blocked, waiting).
+- **Blob states:** `idle`, `alert`, `approved`, `denied` (+ count badge).
+- **Sprite:** placeholder animated **blob** (lightweight canvas/CSS). Final character TBD.
+- **Sound:** default **off** in the MVP (optional later).
 
-## 8. Marcos (MVP fim-a-fim, Copilot)
+## 8. Milestones (end-to-end MVP, Copilot)
 
-- **M0** — workspace + tipos do `core` (`no_std`) + protocolo `postcard`.
-- **M0.5** — *smoke test*: o `core` compila para o target ESP32 (`xtensa`/`riscv32`,
-  via `espup`). Valida a disciplina `no_std` cedo, antes de apodrecer.
-- **M1** — casca do Tauri: tray + janela transparent/always-on-top com o blob `idle`.
-- **M2** — servidor de named pipe no daemon + `companion-hook` mandando request e
-  imprimindo decisão.
-- **M3** — popup de aprovação + blob reage (`idle→alerta→aprovado/negado`) + decisão de volta.
-- **M4** — adapter do Copilot (parse `preToolUse`, devolve allow/deny no formato certo)
-  + `companion install` para o Copilot.
-- **M5** — teste fim-a-fim com o Copilot CLI real (rodado pelo usuário).
+- **M0** — workspace + `core` types (`no_std`) + `postcard` protocol.
+- **M0.5** — *smoke test*: the `core` compiles for the ESP32 target (`xtensa`/`riscv32`,
+  via `espup`). Validates the `no_std` discipline early, before it rots.
+- **M1** — Tauri shell: tray + transparent/always-on-top window with the `idle` blob.
+- **M2** — named pipe server in the daemon + `companion-hook` sending a request and
+  printing the decision.
+- **M3** — approval popup + blob reacts (`idle→alert→approved/denied`) + decision sent back.
+- **M4** — Copilot adapter (parse `preToolUse`, return allow/deny in the right format)
+  + `companion install` for Copilot.
+- **M5** — end-to-end test with the real Copilot CLI (run by the user).
 
-## 9. Fase 2 (pós-MVP)
+## 9. Phase 2 (post-MVP)
 
-- Adapters **Claude Code** e **Codex**.
-- **"Approve & remember"** / allowlist (ex.: "sempre permitir este comando nesta sessão").
-- **Notificações de Pull Request**: polling via `octocrab`; "approve" = submeter
-  review aprovando. Cadência/escopo a definir.
-- Eventos não-bloqueantes (agente terminou) → reações do blob.
-- **Buddy físico ESP32**: escrever `firmware/` (display + botões + um `Transport`),
-  reaproveitando o `core` inteiro. Link (Wi-Fi/MQTT, BLE ou USB serial) a decidir.
+- **Claude Code** and **Codex** adapters.
+- **"Approve & remember"** / allowlist (e.g., "always allow this command in this session").
+- **Pull Request notifications**: polling via `octocrab`; "approve" = submit an
+  approving review. Cadence/scope TBD.
+- Non-blocking events (agent finished) → blob reactions.
+- **Physical ESP32 buddy**: write `firmware/` (display + buttons + a `Transport`),
+  reusing the entire `core`. Link (Wi-Fi/MQTT, BLE or USB serial) TBD.
 
-## 10. Crates previstas
+## 10. Planned crates
 
-- **PTY** — descartado.
-- **IPC desktop:** `interprocess` (named pipe Windows / unix socket).
-- **Serialização wire:** `postcard` (+ `serde` no_std). `serde_json` só nos adapters.
-- **GitHub/PRs (fase 2):** `octocrab`.
-- **ESP32 (fase 2):** `esp-hal` / `embedded-hal`, `espup`.
+- **PTY** — discarded.
+- **Desktop IPC:** `interprocess` (Windows named pipe / unix socket).
+- **Wire serialization:** `postcard` (+ `serde` no_std). `serde_json` only in the adapters.
+- **GitHub/PRs (phase 2):** `octocrab`.
+- **ESP32 (phase 2):** `esp-hal` / `embedded-hal`, `espup`.
 
-## 11. Decisões em aberto
+## 11. Open decisions
 
-| # | Item | Default assumido |
+| # | Item | Assumed default |
 |---|------|------------------|
-| 1 | ~~Nome do projeto~~ | ✅ **CHRIS** (Coding-agent Hook Review Interactive Sidekick) |
-| 2 | Allowlist / "approve & remember" | Fase 2 |
-| 3 | Heurística de risco | Simples (ver §5) |
-| 4 | Link do ESP32 | A decidir (não bloqueia o MVP) |
-| 5 | Personagem/sprite final | Blob placeholder |
-| 6 | Plataforma de teste do MVP | Windows |
+| 1 | ~~Project name~~ | ✅ **CHRIS** (Coding-agent Hook Review Interactive Sidekick) |
+| 2 | Allowlist / "approve & remember" | Phase 2 |
+| 3 | Risk heuristic | Simple (see §5) |
+| 4 | ESP32 link | TBD (does not block the MVP) |
+| 5 | Final character/sprite | Blob placeholder |
+| 6 | MVP test platform | Windows |
 
-## Decisões já fechadas
+## Decisions already closed
 
-- Mecanismo de integração: **hooks** (não PTY, não MCP).
-- Integração: **daemon em background** + hook curto por chamada.
-- MVP: **fim-a-fim mínimo** com **Copilot CLI**.
-- Cross-platform; **teste no Windows primeiro**.
-- Timeout → **Deny**; daemon ausente → **Defer**.
-- UX: **blob + popup ao lado**; concorrência em **fila**.
-- ESP32 como **alvo concreto em breve** → `core` `no_std`, `transport`/`presentation`
-  como cidadãos de primeira classe, validação M0.5.
+- Integration mechanism: **hooks** (not PTY, not MCP).
+- Integration: **background daemon** + short hook per call.
+- MVP: **minimal end-to-end** with **Copilot CLI**.
+- Cross-platform; **test on Windows first**.
+- Timeout → **Deny**; daemon absent → **Defer**.
+- UX: **blob + side popup**; concurrency in a **queue**.
+- ESP32 as a **concrete target soon** → `no_std` `core`, `transport`/`presentation`
+  as first-class citizens, M0.5 validation.
