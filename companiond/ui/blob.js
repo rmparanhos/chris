@@ -23,6 +23,12 @@ function updatePhoto() {
   const dir = PHOTO_SPRITES[stage.dataset.sprite];
   if (!dir) return;
   const state = stage.dataset.state || "idle";
+  // If the Rive dog is available, drive it and let it draw (it replaces the
+  // PNG). We still set the PNG below while Rive is loading / if it's absent.
+  if (window.dogRive) {
+    window.dogRive.setState(window.dogRive.indexOf(state));
+    if (window.dogRive.isActive()) return;
+  }
   photo.src = `${dir}/${state}.png`;
 }
 
@@ -60,6 +66,8 @@ const SPRITES = ["blob", "cat", "dog"];
 function setSprite(name) {
   if (!SPRITES.includes(name)) return;
   stage.dataset.sprite = name;
+  // first time the dog is chosen, try to bring up the Rive version
+  if (name === "dog" && window.dogRive) window.dogRive.ensure();
   document.querySelectorAll("#picker button").forEach((b) => {
     b.classList.toggle("active", b.dataset.sprite === name);
   });
