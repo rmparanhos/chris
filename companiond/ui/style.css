@@ -20,8 +20,8 @@ body {
 }
 
 #blob {
-  width: 150px;
-  height: 150px;
+  width: 190px;
+  height: 190px;
   position: relative;
   cursor: move;
   /* bob (gently moves up and down) */
@@ -60,13 +60,24 @@ body {
 /* photo characters can't recolor like the SVG, but they can still react with
    motion AND a state-colored glow (drop-shadow), so the state is obvious at a
    glance even when the dog is all black. The expression is baked into each PNG. */
+/* the dog has transparent margins in the PNG, so grow its box past the blob to
+   make the actual animal fill the window instead of looking tiny */
 [data-sprite="dog"] #sprite-photo {
+  inset: -12%;
+  width: 124%;
+  height: 124%;
   transition: filter 0.25s ease;
-  transform-origin: 50% 90%; /* scale from the paws, so breathing looks natural */
+  /* the chest/ribcage sits low-center; anchor there so breathing pushes the
+     chest out and up while the paws stay planted */
+  transform-origin: 50% 78%;
+}
+/* the dog shouldn't bob up and down — only breathe */
+[data-sprite="dog"] #blob {
+  animation: none;
 }
 [data-sprite="dog"][data-state="idle"] #sprite-photo {
   filter: drop-shadow(0 0 5px rgba(52, 205, 214, 0.7)); /* cyan */
-  animation: breathe-dog 4s ease-in-out infinite; /* gentle "breathing" at rest */
+  animation: breathe-dog 4.5s ease-in-out infinite; /* gentle "breathing" at rest */
 }
 [data-sprite="dog"][data-state="alert"] #sprite-photo {
   filter: drop-shadow(0 0 11px #ff9f43); /* orange */
@@ -270,10 +281,11 @@ body {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }
-/* softer breathing for the dog photo (scales from the paws) */
+/* breathing for the dog photo: the chest expands (a touch more sideways than
+   up) anchored low-center, so it reads as the ribcage filling — not a bob */
 @keyframes breathe-dog {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
+  0%, 100% { transform: scaleX(1) scaleY(1); }
+  50%      { transform: scaleX(1.055) scaleY(1.025); }
 }
 @keyframes blink {
   0%, 92%, 100% { transform: scaleY(1); }
