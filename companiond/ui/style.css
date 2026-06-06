@@ -78,24 +78,6 @@ body {
   animation: none;
 }
 
-/* Rive dog (only when sprites/dog/dog.riv is present): same box as the PNG.
-   dog-rive.js sets data-dog-rive="on" once it's loaded, which swaps the PNG for
-   the live canvas. Without the .riv this canvas stays hidden and the PNGs win. */
-#dog-rive {
-  display: none;
-}
-[data-sprite="dog"] #dog-rive {
-  inset: -12%;
-  width: 124%;
-  height: 124%;
-}
-[data-sprite="dog"][data-dog-rive="on"] #dog-rive {
-  display: block;
-}
-[data-sprite="dog"][data-dog-rive="on"] #sprite-photo {
-  display: none;
-}
-
 /* lucky cat (maneki-neko) photo sprite: per-state colored glow + reactions.
    Keeps the gentle bob (it's cute on a waving lucky cat), so no breathing hack
    is needed here. The expression/eye/collar color is baked into each PNG. */

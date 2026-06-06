@@ -74,15 +74,9 @@
         </svg>
 
         <!-- ===== Image-based character (PNG, one file per state) =====
-             Used by photo sprites like "dog". If the files aren't present yet,
-             blob.js falls back to the blob SVG above. -->
+             Used by photo sprites (dog, luckycat). If the files aren't present
+             yet, blob.js falls back to the blob SVG above. -->
         <img id="sprite-photo" class="sprite" alt="" />
-
-        <!-- ===== Rive-powered dog (optional) =====
-             If sprites/dog/dog.riv exists, dog-rive.js renders the dog here with
-             real chest breathing + per-state reactions and hides the PNG above.
-             Missing .riv -> this stays blank and the PNGs are used. -->
-        <canvas id="dog-rive" class="sprite"></canvas>
       </div>
 
       <!-- character picker (appears on hover) -->
@@ -94,8 +88,6 @@
       </div>
     </div>
 
-    <script src="vendor/rive.js"></script>
-    <script src="dog-rive.js"></script>
     <script src="blob.js"></script>
   </body>
 </html>
