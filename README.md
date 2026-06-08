@@ -12,8 +12,6 @@ and lets you approve it on the spot.
 > (Copilot today, Claude Code, and Codex/others next) and built on **hooks**
 > instead of wrapping the terminal.
 
-> Architecture & design notes (in Portuguese): [`DESIGN.md`](DESIGN.md).
-
 ---
 
 ## How it works
@@ -35,11 +33,15 @@ chris hook ──IPC (named pipe)──▶ companiond (Tauri)
 
 ## Get it running
 
-### Option A — Prebuilt installer (Windows, easiest)
+### Option A — Prebuilt installer (Windows & macOS, easiest)
 
 Once a release is published, go to the **Releases** page and download the
-`.msi` (or `.exe`) installer. Install, launch **CHRIS**, and skip to
+installer for your OS — **Windows** (`.msi` / `.exe`) or **macOS** (`.dmg`,
+universal). Install, launch **CHRIS**, and skip to
 [Connect it to a project](#connect-it-to-a-project). No Rust, no compiling.
+
+> The macOS build is unsigned, so on first launch right-click the app → **Open**
+> (or allow it in **System Settings → Privacy & Security**).
 
 > Releases are produced automatically by GitHub Actions whenever a `v*` tag is
 > pushed (see `.github/workflows/release.yml`).
@@ -97,18 +99,23 @@ Without a token, PR notifications are simply off (everything else still works).
 
 ---
 
-## Customizing the blob (sprite)
+## Characters & customizing
 
-Very easy, and **no Rust required** — the blob is just SVG + CSS:
+Hover the companion to get a small **character picker**: 🫧 blob, 🐱 cat,
+🐶 dog, 😺 lucky cat. Your choice is remembered. It's **all SVG/PNG + CSS**, so
+**no Rust required** to tweak or add one:
 
-- `companiond/ui/index.html` — the shape (an SVG: body, eyes, mouths).
+- `companiond/ui/index.html` — the SVG characters (blob, cat) and the picker.
 - `companiond/ui/style.css` — colors and animations per state.
+- `companiond/ui/sprites/<name>/` — PNG characters: one image per state
+  (`idle/alert/approved/denied/pr.png`), like `dog` and `luckycat`.
 
-The look is driven by a single attribute, `data-state`, with four values:
-`idle`, `alert`, `approved`, `denied` (plus `pr`). To change the sprite, swap
-the SVG (or drop in a PNG/GIF/Lottie) and keep those state hooks — the daemon
-just calls `setBlobState(state, count)` in `companiond/ui/blob.js`. You can
-preview any change instantly by opening `index.html` in a browser.
+Everything is driven by a single attribute, `data-state`
+(`idle`, `alert`, `approved`, `denied`, `pr`). The daemon just calls
+`setBlobState(state, count)` in `companiond/ui/blob.js`. To **add a PNG
+character**, drop a folder under `sprites/`, list it in `PHOTO_SPRITES` +
+`SPRITES`, and add a picker button. You can preview any change instantly by
+opening `index.html` in a browser.
 
 ---
 
@@ -135,10 +142,28 @@ cargo run -p companiond
 | `crates/transport-ipc/` | IPC between `chris` and `companiond` |
 | `crates/github/` | Pull Request polling & approve |
 | `crates/core/` | The portable `no_std` "brain" (also compiles for ESP32) |
-| `.github/workflows/` | CI (test + build) and Release (Windows installer) |
+| `.github/workflows/` | CI (test + build) and Release (Windows & macOS installers) |
 
-## Status
+## Roadmap
 
-✅ Blob + tray, approval popup, **Copilot CLI and Claude Code** hooks, automatic
-installer, **Pull Request notifications**, and automated Windows builds.
-Next (phase 2): Codex adapter, "approve & remember", and a physical ESP32 buddy.
+**Done**
+
+- ✅ Companion + system tray, approval popup (Enter = allow, Esc = deny).
+- ✅ Hooks for **GitHub Copilot CLI** and **Claude Code**.
+- ✅ **Pull Request notifications** (review requested) with open/approve.
+- ✅ Multiple characters (blob, cat, dog, lucky cat) with a picker.
+- ✅ Automated **Windows & macOS** installers via GitHub Actions.
+
+**Next**
+
+- ⏳ **Codex** adapter (and other agents).
+- ⏳ "**Approve & remember**" — stop asking for actions you've already trusted.
+- ⏳ Visible **queue** when several requests arrive at once.
+- ⏳ Richer idle animation for the characters (e.g. Rive-based breathing —
+  prototype kept on the `claude/rive-dog` branch).
+- ⏳ A physical **ESP32 buddy** — a desk device with the sprite + Approve/Deny
+  buttons (the `no_std` core is built for this).
+
+## License
+
+[MIT](LICENSE) © 2026 rmparanhos
