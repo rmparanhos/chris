@@ -159,6 +159,9 @@ cargo run -p companiond
 - ⏳ **Codex** adapter (and other agents).
 - ⏳ "**Approve & remember**" — stop asking for actions you've already trusted.
 - ⏳ Visible **queue** when several requests arrive at once.
+- ⏳ **Gamification** — earn XP and keep streaks for reviewing PRs and handling
+  approvals, unlock achievements/badges, and let the companion **level up and
+  evolve** its look as you go.
 - ⏳ Richer idle animation for the characters (e.g. Rive-based breathing —
   prototype kept on the `claude/rive-dog` branch).
 - ⏳ A physical **ESP32 buddy** — a desk device with the sprite + Approve/Deny

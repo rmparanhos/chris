@@ -92,8 +92,16 @@ fn run_hook(args: &[String]) {
         }
     };
 
-    // 4) ask the daemon, with a timeout
-    let decision = ask_daemon(req);
+    // 4) decide.
+    //    Read-only tools (read/grep/list/search/get…) are deferred to the agent
+    //    so the companion only interrupts you for actions with side effects
+    //    (shell, file writes, MCP, unknown tools). Set CHRIS_ASK_ALL=1 to ask
+    //    for everything (the previous behavior). Fail-safe: unknown -> ask.
+    let decision = if !ask_all() && is_read_only(&req.tool) {
+        Decision::Defer
+    } else {
+        ask_daemon(req)
+    };
 
     // 5) respond in the agent's format
     let reason = match decision {
@@ -109,6 +117,75 @@ fn run_hook(args: &[String]) {
     print!("{}", resp.stdout);
     let _ = std::io::stdout().flush();
     std::process::exit(resp.exit_code);
+}
+
+/// `CHRIS_ASK_ALL=1` (or `true`) brings back the "ask for everything" behavior,
+/// bypassing the read-only filter below.
+fn ask_all() -> bool {
+    matches!(
+        std::env::var("CHRIS_ASK_ALL").ok().as_deref(),
+        Some("1") | Some("true") | Some("yes")
+    )
+}
+
+/// Splits a tool name into lowercase word tokens, breaking on non-alphanumerics
+/// **and** on camelCase boundaries, so `get_file_contents`, `WebSearch` and
+/// `NotebookRead` all tokenize into the words we match on.
+fn tokenize(tool: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut prev_lower = false;
+    for c in tool.chars() {
+        if c.is_alphanumeric() {
+            if c.is_uppercase() && prev_lower && !cur.is_empty() {
+                out.push(cur.to_lowercase());
+                cur = String::new();
+            }
+            cur.push(c);
+            prev_lower = c.is_lowercase();
+        } else {
+            if !cur.is_empty() {
+                out.push(cur.to_lowercase());
+                cur = String::new();
+            }
+            prev_lower = false;
+        }
+    }
+    if !cur.is_empty() {
+        out.push(cur.to_lowercase());
+    }
+    out
+}
+
+/// Heuristic: is this tool side-effect-free (so we can let the agent handle it
+/// without interrupting the user)?
+///
+/// We classify by the tool name, which is shared across agents and MCP servers
+/// (`Read`, `Grep`, `list_issues`, `get_file_contents`, …). It is **fail-safe**:
+/// an effectful verb always wins, and anything we don't recognize falls through
+/// to `false` (ask). So new/unknown/MCP tools are never silently skipped.
+fn is_read_only(tool: &str) -> bool {
+    let tokens = tokenize(tool);
+    let tokens: Vec<&str> = tokens.iter().map(String::as_str).collect();
+
+    // Verbs that mean "this changes something" -> always ask.
+    const EFFECTFUL: [&str; 26] = [
+        "write", "edit", "create", "update", "delete", "remove", "rm", "push",
+        "merge", "run", "exec", "shell", "bash", "cmd", "powershell", "install",
+        "apply", "move", "rename", "chmod", "kill", "deploy", "publish", "post",
+        "put", "patch",
+    ];
+    if tokens.iter().any(|t| EFFECTFUL.contains(t)) {
+        return false;
+    }
+
+    // Verbs that mean "this only reads" -> safe to defer.
+    const READ_ONLY: [&str; 18] = [
+        "read", "glob", "grep", "list", "ls", "search", "view", "find", "cat",
+        "head", "tail", "stat", "get", "fetch", "show", "describe", "diff",
+        "status",
+    ];
+    tokens.iter().any(|t| READ_ONLY.contains(t))
 }
 
 /// Talks to the daemon on a thread and applies the timeout policy.
@@ -264,4 +341,39 @@ fn install_claude(invoke: &str) {
     println!("Claude Code hook installed/updated at {}", path.display());
     println!("Hook command: {invoke}");
     println!("Reminder: the daemon (companiond) must be running for the blob to react.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_read_only;
+
+    #[test]
+    fn read_only_tools_are_deferred() {
+        // Claude-style and MCP-style read tools
+        for t in [
+            "Read", "Grep", "Glob", "LS", "WebSearch", "list_issues",
+            "get_file_contents", "search_code", "show", "git status",
+        ] {
+            assert!(is_read_only(t), "{t} should be read-only");
+        }
+    }
+
+    #[test]
+    fn effectful_tools_are_asked() {
+        // shell + file writes + GitHub MCP writes
+        for t in [
+            "shell", "Bash", "Write", "Edit", "create_pull_request",
+            "merge_pull_request", "delete_file", "update_issue", "rm -rf",
+        ] {
+            assert!(!is_read_only(t), "{t} should require approval");
+        }
+    }
+
+    #[test]
+    fn unknown_tools_fall_through_to_ask() {
+        // fail-safe: nothing recognized -> not read-only -> ask
+        assert!(!is_read_only("frobnicate"));
+        assert!(!is_read_only("mcp_tool"));
+        assert!(!is_read_only(""));
+    }
 }
